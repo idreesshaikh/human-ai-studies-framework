@@ -1,77 +1,83 @@
-"""A test double for the language model the design conversation needs."""
+"""A test double for the language model the design chat needs.
+
+It answers in the JSON shape :mod:`middleware.study_plan` asks for. ``plausible``
+behaves like a competent, compliant model: while any part of the plan is open it
+drafts the whole plan, and otherwise it answers without proposing anything.
+"""
 
 from __future__ import annotations
 
 import json
+import urllib.error
 from collections.abc import Callable, Iterable
 
 from middleware import assistant
 
 Reply = dict
 
+PLAN = {
+    "title": "AI assistance on maintenance tasks",
+    "researchQuestions": [
+        "Does an AI assistant change how long developers take to finish "
+        "maintenance tasks?",
+        "Does an AI assistant change developers' perceived workload?",
+    ],
+    "design": "within-subjects",
+    "conditions": ["ai-assisted", "unassisted"],
+    "participantDescription": "Professional developers",
+    "plannedParticipants": 12,
+    "taskDescription": "Complete maintenance tasks in a small Python service.",
+    "sessionMinutes": 45,
+    "measureIds": ["E1", "S8"],
+}
+
+_NOT_A_CHAT_TURN = {"text": "", "moves": []}
+
+
+def _is_chat_turn(body: dict) -> bool:
+    return "<researcher_message>" in body["messages"][-1]["content"]
+
 
 def _provider(handler: Callable[[dict], Reply], captured: list | None = None):
     def post(url, body, headers):
         if captured is not None:
             captured.append(body)
-        return {
-            "choices": [{"message": {"content": json.dumps(handler(body))}}]
-        }
+        reply = handler(body) if _is_chat_turn(body) else _NOT_A_CHAT_TURN
+        return {"choices": [{"message": {"content": json.dumps(reply)}}]}
 
     return assistant.MistralProvider("test-key", post=post)
 
 
+def draft(
+    reply: str = "Here is a plan to react to.",
+    *,
+    sources: dict | None = None,
+    **overrides,
+) -> Reply:
+    """A reply that proposes the whole plan, with ``overrides`` applied and
+    ``sources`` citing retrieved papers by id."""
+    return {
+        "reply": reply,
+        "questions": [],
+        "changes": {**PLAN, **overrides},
+        "why": {"plannedParticipants": "A crossover needs fewer people."},
+        "caution": "Order effects can remain after counterbalancing.",
+        "sources": sources or {},
+    }
+
+
+def talk(reply: str, *questions: str, **changes) -> Reply:
+    """A reply that talks, asks and proposes only ``changes``."""
+    return {
+        "reply": reply,
+        "questions": [{"ask": q, "options": []} for q in questions],
+        "changes": changes,
+    }
+
+
 def always(reply: Reply, captured: list | None = None):
-    """A model that gives the same reply to everything."""
+    """A model that gives the same reply to every chat turn."""
     return _provider(lambda _body: reply, captured)
-
-
-_MENU_MARKER = "\n\nCandidate menu this turn:"
-
-
-def _researcher_text(body: dict) -> str | None:
-    """
-    What the researcher actually said this turn, or None when the call is not a design
-    turn (matching's query expansion shares this provider).
-    """
-    message = body["messages"][-1]["content"]
-    head, marker, _ = message.partition(_MENU_MARKER)
-    return head if marker else None
-
-
-def _directive(body: dict) -> str:
-    """
-    This turn's stance instruction - the system message the server puts after the
-    history (``design_llm._messages``).
-    """
-    systems = [m["content"] for m in body["messages"] if m["role"] == "system"]
-    return systems[-1] if len(systems) > 1 else ""
-
-
-def _menu_templates(body: dict) -> list[str]:
-    """The template ids on this turn's candidate menu, best match first."""
-    _, marker, menu = body["messages"][-1]["content"].partition(_MENU_MARKER)
-    if not marker:
-        return []
-    ids = []
-    for line in menu.splitlines():
-        line = line.strip()
-        if line.startswith("- ") and ":" in line:
-            candidate = line[2:].split(":", 1)[0].strip()
-            if "-v" in candidate and candidate.rsplit("-v", 1)[-1].isdigit():
-                ids.append(candidate)
-    return ids
-
-
-def _pick_template(body: dict, prefer: str | None) -> str | None:
-    """
-    The template the double adopts: ``prefer`` when the menu offers it, otherwise the
-    menu's own best match.
-    """
-    ids = _menu_templates(body)
-    if prefer and prefer in ids:
-        return prefer
-    return ids[0] if ids else None
 
 
 def in_turn(replies: Iterable[Reply], captured: list | None = None):
@@ -80,9 +86,7 @@ def in_turn(replies: Iterable[Reply], captured: list | None = None):
     assert queue, "in_turn needs at least one reply"
     state = {"i": 0}
 
-    def handler(body: dict) -> Reply:
-        if _researcher_text(body) is None:
-            return {"text": "", "moves": []}
+    def handler(_body: dict) -> Reply:
         reply = queue[min(state["i"], len(queue) - 1)]
         state["i"] += 1
         return reply
@@ -92,7 +96,20 @@ def in_turn(replies: Iterable[Reply], captured: list | None = None):
 
 def silent(captured: list | None = None):
     """A model that replies with prose and proposes nothing."""
-    return always({"text": "Noted.", "moves": []}, captured)
+    return always(talk("Noted."), captured)
+
+
+def plausible(captured: list | None = None, plan: dict | None = None):
+    """Drafts the plan while any part of it is open; otherwise just answers."""
+
+    def handler(body: dict) -> Reply:
+        prompt = body["messages"][-1]["content"]
+        state = prompt.split("</study_state>", 1)[0]
+        if "[open]" in state and "chose answers only" not in prompt:
+            return draft(**(plan or {}))
+        return talk("The plan already covers that.")
+
+    return _provider(handler, captured)
 
 
 def outage():
@@ -111,7 +128,6 @@ def outage():
 
 def rejected_key():
     """A configured provider that refuses the credential, counting its calls."""
-    import urllib.error
 
     class _Rejects:
         model = "test"
@@ -124,197 +140,3 @@ def rejected_key():
             raise urllib.error.HTTPError(self.base_url, 401, "Unauthorized", {}, None)
 
     return _Rejects()
-
-
-def move(kind: str, section: str, value: str, *, refs: tuple[str, ...] = ()) -> dict:
-    return {
-        "kind": kind,
-        "target": f"{section}[]",
-        "proposal": value,
-        "patch": {"section": section, "op": "append", "value": value},
-        "refs": list(refs),
-    }
-
-
-def field(path: tuple[str, ...], value: object) -> dict:
-    return {
-        "kind": "set-field",
-        "target": ".".join(path),
-        "proposal": f"Set {'.'.join(path)} to {value}.",
-        "patch": {"op": "set-field", "path": list(path), "value": value},
-        "refs": [],
-    }
-
-
-def template(template_id: str, *, refs: tuple[str, ...] = ()) -> dict:
-    return {
-        "kind": "choose-template",
-        "target": "design",
-        "proposal": f"Adopt the {template_id} template.",
-        "patch": {"templateId": template_id, "parameters": {}},
-        "refs": list(refs),
-    }
-
-
-def merge(
-    template_ids: tuple[str, ...], reason: str, *, refs: tuple[str, ...] = ()
-) -> dict:
-    return {
-        "kind": "merge-templates",
-        "target": "design",
-        "proposal": f"Merge {', '.join(template_ids)}.",
-        "patch": {"templateIds": list(template_ids), "reason": reason},
-        "refs": list(refs),
-    }
-
-
-def caution(text: str, *, refs: tuple[str, ...] = ()) -> dict:
-    return {
-        "kind": "caution",
-        "target": "measures",
-        "proposal": text,
-        "patch": None,
-        "refs": list(refs),
-    }
-
-
-def instrument(minutes: int = 45) -> dict:
-    from middleware import compiler
-
-    return {
-        "kind": "add-instrument",
-        "target": "instruments.tern",
-        "proposal": "Add the standard TERN capture.",
-        "patch": {
-            "section": "instruments",
-            "op": "add-instrument",
-            "name": "tern",
-            "config": compiler.default_capture_instrument(minutes),
-        },
-        "refs": [],
-    }
-
-
-def plausible(captured: list | None = None, prefer: str | None = "metr-rct-v1"):
-    """A double that behaves like a competent, compliant model."""
-
-    def handler(body: dict) -> Reply:
-        said = _researcher_text(body)
-        if said is None:
-            return {"text": "", "moves": []}
-        directive = _directive(body)
-        said = said.lower()
-
-        if "THIS TURN IS A QUESTION ABOUT WHAT YOU ALREADY SAID" in directive:
-            return {
-                "text": "I proposed that because the corpus supports it.",
-                "moves": [],
-            }
-
-        moves: list[dict] = []
-        if "agent-capture" in said or "agent capture" in said:
-            return {
-                "text": "That adds a new data stream, which is consent-relevant.",
-                "moves": [agent_capture()],
-            }
-        if "threshold" in said or "stuck" in said:
-            return {
-                "text": "That's instrument tuning, not a consent change.",
-                "moves": [stuck_threshold(120)],
-            }
-        if "self-report" in said or "survey" in said:
-            moves.append(
-                caution(
-                    "Self-reported speed diverges from measured speed; pair it "
-                    "with an objective task-time measure.",
-                    refs=("corpus:metr-early-2025-dev-productivity",),
-                )
-            )
-        if "trust" in said or "junior" in said:
-            moves.extend(
-                [
-                    move(
-                        "add-rq",
-                        "researchQuestions",
-                        "Do juniors accept AI code with less review than seniors?",
-                        refs=("corpus:trust-in-ai-code-generation",),
-                    ),
-                    move(
-                        "add-measure",
-                        "measures",
-                        "Review latency before accept/reject",
-                        refs=("corpus:insecure-code-with-ai-assistants",),
-                    ),
-                ]
-            )
-
-        invited = (
-            "explicitly asked you to name a design" in directive
-            or "named a design themselves" in directive
-        )
-        if not invited:
-            return {
-                "text": "Tell me more  -  who takes part, and what will they do?",
-                "moves": moves,
-            }
-
-        template_id = _pick_template(body, prefer)
-        if template_id:
-            moves.append(
-                template(
-                    template_id,
-                    refs=("corpus:metr-early-2025-dev-productivity",),
-                )
-            )
-        return {
-            "text": "Here's the shape I'd use, and why.",
-            "moves": moves,
-        }
-
-    return _provider(handler, captured)
-
-
-def agent_capture(policy: str = "metadata-only") -> dict:
-    """
-    Add the agent-capture instrument  -  a new data stream, so the amendment path treats
-    it as consent-relevant.
-    """
-    return {
-        "kind": "add-instrument",
-        "target": "instruments.agentCapture",
-        "proposal": "Add the agent-capture instrument (Claude Code adapter).",
-        "patch": {
-            "section": "instruments",
-            "op": "add-instrument",
-            "name": "agentCapture",
-            "config": {"adapter": "claude-code", "contentPolicy": policy},
-        },
-        "refs": [],
-    }
-
-
-def stuck_threshold(seconds: int) -> dict:
-    """Retune the stuck detector  -  a config tweak, not a new data stream."""
-    return {
-        "kind": "reconfigure-instrument",
-        "target": "instruments.tern.stuck.thresholdSeconds",
-        "proposal": f"Raise the stuck-detector threshold to {seconds}s.",
-        "patch": {
-            "section": "instruments",
-            "op": "reconfigure",
-            "name": "tern",
-            "path": ["stuck", "thresholdSeconds"],
-            "value": seconds,
-        },
-        "refs": [],
-    }
-
-
-def prescription(recipe_id: str, rq: str = "RQ-1") -> dict:
-    return {
-        "kind": "prescribe-statistics",
-        "target": "analysisPlan",
-        "proposal": f"Analyse with {recipe_id}.",
-        "patch": {"recipeId": recipe_id, "rq": rq},
-        "refs": [],
-    }

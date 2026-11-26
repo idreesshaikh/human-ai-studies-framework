@@ -39,6 +39,7 @@ from middleware.settings import Settings
 from protocol.loader import validate_protocol
 from protocol.measures import validated_responses
 from sqlalchemy import func, select
+from study_helpers import apply_draft
 
 BASE = f"/studies/{EXAMPLE_STUDY_ID}"
 SESSIONS = COMPLETED_PARTICIPANTS * 2 + 1
@@ -118,9 +119,11 @@ def test_outcome_checks_inspect_synthetic_example_without_changing_data(client, 
     assert response.status_code == 200
     report = response.json()
     assert report["sessionUnits"] == SESSIONS and report["synthetic"] is True
-    assert report["outcomes"]
-    assert any(o["observedUnits"] for o in report["outcomes"])
-    assert any(o["issues"] for o in report["outcomes"])
+    timing = next(o for o in report["outcomes"] if o["measureId"] == "first-green-time")
+    assert timing["status"] == "incomplete"
+    assert 0 < timing["observedUnits"] < SESSIONS
+    assert timing["pairedParticipants"] > 0
+    assert timing["issues"]
     assert _events(seeded) == before
     assert client.get(f"{BASE}/dataset").json()["rows"] == []
     assert (
@@ -171,7 +174,7 @@ def test_every_seeded_row_carries_the_synthetic_marker(seeded):
     assert sessions == mapped and len(sessions) == SESSIONS
 
 
-def test_protocol_is_a_valid_v6_example_with_a_saved_plan_and_links(client):
+def test_example_exposes_a_valid_v6_protocol_plan_links_and_conversation(client):
     protocol = client.get(f"{BASE}/protocol").json()["document"]
     assert validate_protocol(protocol) == []
     assert protocol["protocolVersion"] == 6
@@ -191,6 +194,14 @@ def test_protocol_is_a_valid_v6_example_with_a_saved_plan_and_links(client):
         "paired": COMPLETED_PARTICIPANTS + 1,
         "unredeemed": PLANNED_PARTICIPANTS - COMPLETED_PARTICIPANTS - 1,
     }
+
+    conversation = client.get(f"{BASE}/conversation")
+    assert conversation.status_code == 200, conversation.text
+    turns = conversation.json()["turns"]
+    assert [turn["role"] for turn in turns] == ["researcher", "platform"] * 2
+    assert turns[1]["questions"][0]["options"]
+    pending = turns[-1]["moves"]
+    assert len(pending) == 1 and pending[0]["status"] == "proposed"
 
     home = client.get("/projects/implicit").json()
     assert {"id": EXAMPLE_STUDY_ID, "hasProtocol": True} in home["studies"]
@@ -310,6 +321,7 @@ def test_no_other_study_is_marked_as_the_synthetic_example(client):
         "/projects/implicit/studies",
         json={"name": "A real study", "protocol": document},
     ).json()["id"]
+    apply_draft(client, other)
     assert other != EXAMPLE_STUDY_ID
     status = client.get(f"/studies/{other}/status").json()
     assert status["syntheticExample"] is False
@@ -373,6 +385,7 @@ def test_a_separate_study_still_mints_and_redeems_live_links(client):
         "/projects/implicit/studies",
         json={"name": "A live capture rehearsal", "protocol": document},
     ).json()["id"]
+    apply_draft(client, study)
     response = client.post(f"/studies/{study}/enrollment/tokens", json={"count": 1})
     assert response.status_code == 200, response.text
     link = response.json()[0]
@@ -395,3 +408,24 @@ def test_the_recorded_analysis_plan_matches_the_protocols_test(client):
         "/analysis/prescriptions", params={"study_id": EXAMPLE_STUDY_ID}
     ).json()["prescriptions"]
     assert [row["test"] for row in rows] == ["Paired t-test (two-sided)"]
+
+
+def test_the_example_conversation_ends_on_a_revision_that_compiles(client):
+    turns = client.get(f"{BASE}/conversation").json()["turns"]
+    assert [t["role"] for t in turns] == ["researcher", "platform"] * 2
+    assert turns[1]["questions"][0]["options"]
+    (card,) = turns[-1]["moves"]
+    assert card["kind"] == "set-plan" and card["status"] == "proposed"
+    r = client.post(
+        f"{BASE}/conversation/moves/{card['moveId']}/decision",
+        json={"status": "accepted", "decidedBy": "Researcher"},
+    )
+    assert r.status_code == 200, r.text
+    compiled = client.post(f"{BASE}/conversation/compile", json={}).json()
+    assert compiled["valid"], (compiled["errors"], compiled["unresolved"])
+    assert compiled["protocol"]["participants"]["planned"] == 30
+    assert compiled["protocol"]["conditions"] == ["without AI", "with Copilot"]
+
+
+def test_the_example_is_listed_under_its_title(client):
+    assert client.get(f"{BASE}/summary").json()["name"] == EXAMPLE_TITLE

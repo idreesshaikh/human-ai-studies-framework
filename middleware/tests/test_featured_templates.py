@@ -13,6 +13,7 @@ from middleware.app import create_app
 from middleware.settings import Settings
 from protocol.loader import load_protocol
 from protocol.versioning import version_record
+from study_helpers import apply_draft
 
 from middleware import template_registry
 
@@ -45,6 +46,10 @@ def test_featured_template_reaches_a_recorded_plan(tmp_path, template_id):
         )
         assert study.status_code == 200, study.text
         sid = study.json()["id"]
+        # The template is the study's draft until it is reviewed and applied.
+        early = client.post(f"/studies/{sid}/plan", json={"effect": 0.5})
+        assert early.status_code == 409, early.text
+        apply_draft(client, sid)
         plan = client.post(
             f"/studies/{sid}/plan",
             json={

@@ -62,11 +62,28 @@ def test_project_payload_flags_studies_with_a_protocol(client):
         json={"name": "Full", "protocol": MINIMAL_PROTOCOL},
         headers=bearer("alice"),
     ).json()["id"]
-    res = client.get(f"/projects/{slug}", headers=bearer("alice"))
-    assert res.status_code == 200, res.text
-    studies = {s["id"]: s for s in res.json()["studies"]}
-    assert studies[bare]["hasProtocol"] is False
-    assert studies[full]["hasProtocol"] is True
+
+    def flags() -> dict[str, bool]:
+        res = client.get(f"/projects/{slug}", headers=bearer("alice"))
+        assert res.status_code == 200, res.text
+        return {s["id"]: s["hasProtocol"] for s in res.json()["studies"]}
+
+    # A starting protocol is a draft until it is applied.
+    assert flags() == {bare: False, full: False}
+    import yaml
+    from middleware.db import ProtocolDraftRow, make_session_factory
+
+    with make_session_factory(f"sqlite:///{client.db_path}")() as s:
+        s.add(
+            ProtocolDraftRow(
+                study_id=full,
+                yaml=yaml.safe_dump(MINIMAL_PROTOCOL),
+                compilation_id="",
+                updated_at="",
+            )
+        )
+        s.commit()
+    assert flags() == {bare: False, full: True}
 
 
 def test_boot_protocol_is_reported_without_a_saved_draft(tmp_path):
@@ -91,3 +108,20 @@ def test_boot_protocol_is_reported_without_a_saved_draft(tmp_path):
     assert studies[study_id]["hasProtocol"] is True
     with make_session_factory(settings.db_url)() as session:
         assert session.get(ProtocolDraftRow, study_id) is None
+
+
+def test_a_study_keeps_the_name_it_was_given(client):
+    slug = client.post(
+        "/projects", json={"name": "Lab"}, headers=bearer("alice")
+    ).json()["slug"]
+    made = client.post(
+        f"/projects/{slug}/studies",
+        json={"name": "ZZ Audit: Copilot (pilot)"},
+        headers=bearer("alice"),
+    ).json()["id"]
+    listed = client.get("/studies", headers=bearer("alice")).json()
+    assert next(st for st in listed if st["id"] == made)["name"] == (
+        "ZZ Audit: Copilot (pilot)"
+    )
+    summary = client.get(f"/studies/{made}/summary", headers=bearer("alice")).json()
+    assert summary["name"] == "ZZ Audit: Copilot (pilot)"

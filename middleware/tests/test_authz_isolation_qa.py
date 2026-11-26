@@ -12,6 +12,7 @@ from middleware.app import create_app
 from middleware.auth import Identity
 from middleware.db import Membership, SessionBlock, SessionOpen, make_session_factory
 from middleware.settings import Settings
+from study_helpers import apply_draft
 
 from middleware import auth as auth_mod
 
@@ -153,6 +154,7 @@ def test_participant_credential_is_study_bound_and_not_a_project_identity(client
             headers=bearer(owner),
         )
         assert made.status_code == 200, made.text
+        apply_draft(client, made.json()["id"], bearer(owner))
         studies.append(made.json()["id"])
 
     study_a, study_b = studies

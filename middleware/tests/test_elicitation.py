@@ -1,11 +1,12 @@
 """Listening before proposing, and answering what was asked (FR-CONV-9/10)."""
 
+import model_double
 import pytest
 from fastapi.testclient import TestClient
 from middleware.app import create_app
 from middleware.settings import Settings
 
-from middleware import elicitation
+from middleware import assistant, elicitation
 
 STUDY = "elicit-study"
 
@@ -23,98 +24,15 @@ def client(tmp_path):
         port=8000,
         spa_dist=tmp_path / "no-dist",
     )
-    tc = TestClient(create_app(settings))
-    tc.db_url = f"sqlite:///{settings.db_path}"
-    return tc
+    return TestClient(create_app(settings))
 
 
-def _ask(client, text, study=STUDY):
-    res = client.post(f"/studies/{study}/conversation/turns", json={"text": text})
+def _ask(client, text, study=STUDY, **options):
+    res = client.post(
+        f"/studies/{study}/conversation/turns", json={"text": text, **options}
+    )
     assert res.status_code == 200, res.text
     return res.json()
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "Why?",
-        "what do you mean by counterbalanced?",
-        "I asked why, you didn't answer",
-    ],
-)
-def test_questions_about_prior_turns_are_recognised(text):
-    assert elicitation.classify_turn(text) == "followup-question"
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "I dont know you help me",
-        "not sure",
-        "what?",
-        "can you help me",
-        "yes indeed",
-        "I've a sample example",
-        "what else do you need",
-    ],
-)
-def test_low_information_replies_request_scaffolding(text):
-    assert elicitation.needs_scaffolding(text)
-    assert elicitation.classify_turn(text) == "needs-scaffolding"
-
-
-def test_a_question_about_a_prior_move_is_not_misclassified_as_stuck():
-    assert not elicitation.needs_scaffolding("I don't know why you proposed that")
-    assert (
-        elicitation.classify_turn("I don't know why you proposed that")
-        == "followup-question"
-    )
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "what design and statistics should I use?",
-        "skip the questions",
-    ],
-)
-def test_explicit_design_requests_are_recognised(text):
-    assert elicitation.classify_turn(text) == "design-request"
-
-
-def test_a_complete_brief_uses_batch_intake():
-    assert elicitation.is_complete_brief(SKETCH)
-    assert not elicitation.is_complete_brief("I want to study developers")
-
-
-def test_explicit_coding_facts_become_reviewable_moves_without_the_model():
-    facts = elicitation.explicit_protocol_facts(
-        "Novice developers will fix a Python bug in 45-minute lab sessions, "
-        "within subjects, with AI and without AI, measuring cognitive load "
-        "and code comprehension."
-    )
-    assert {fact["kind"] for fact in facts} == {
-        "set-parameter",
-        "set-field",
-        "declare-task",
-        "add-measure",
-    }
-    conditions = next(f for f in facts if f["patch"].get("section") == "conditions")
-    assert conditions["patch"]["value"] == ["ai-assisted", "unassisted"]
-    task = next(f for f in facts if f["kind"] == "declare-task")
-    assert task["patch"]["title"] == "Fix Python bug"
-    assert any(
-        f["patch"].get("path") == ["session", "durationMinutes"]
-        and f["patch"]["value"] == 45
-        for f in facts
-    )
-
-
-def test_only_ai_does_not_invent_a_control_condition():
-    facts = elicitation.explicit_protocol_facts(
-        "Participants will fix a Python bug using only AI assistance."
-    )
-    assert not any(f["patch"].get("section") == "conditions" for f in facts)
 
 
 LABELLED_BRIEF = """Title: Copilot and bug fixing
@@ -127,56 +45,26 @@ Ethics: pending committee review
 """
 
 
-def test_a_labelled_brief_becomes_one_reviewable_move_per_fact():
-    assert elicitation.is_complete_brief(LABELLED_BRIEF)
-    extracted = elicitation.explicit_protocol_facts(LABELLED_BRIEF)
-    facts = {f["target"]: f for f in extracted}
-    assert facts["study.title"]["patch"]["value"] == "Copilot and bug fixing"
-    assert facts["researchQuestions[]"]["kind"] == "add-rq"
-    assert facts["researchQuestions[]"]["patch"]["value"] == [
-        "Does AI assistance change time to fix a bug?"
-    ]
-    assert facts["participants.description"]["patch"]["value"] == "novice developers"
-    assert facts["participants.design"]["patch"]["value"] == "within-subjects"
-    assert facts["participants.counterbalanced"]["patch"]["value"] is True
-    assert facts["session.durationMinutes"]["patch"]["value"] == 45
-    assert facts["participants.planned"]["patch"]["value"] == 24
-    assert facts["study.ethicsRef"]["patch"]["value"] == "pending committee review"
-
-
-def test_a_brief_naming_a_design_keeps_its_cards_when_the_model_is_down(
-    client, monkeypatch
-):
-    from middleware import design_llm
-
-    monkeypatch.setattr(design_llm, "propose_turn", lambda *a, **k: None)
+def test_a_model_outage_saves_the_brief_without_proposing_cards(client, monkeypatch):
+    monkeypatch.setattr(assistant, "make_design_client", model_double.outage)
     reply = _ask(client, LABELLED_BRIEF)
-    targets = {move["target"] for move in reply["moves"]}
-    assert reply["source"] == "scripted"
-    assert {"participants.design", "study.title", "researchQuestions[]"} <= targets
+    assert reply["source"] == "unavailable"
+    assert reply["moves"] == []
+    turns = client.get(f"/studies/{STUDY}/conversation").json()["turns"]
+    assert turns[0]["text"] == LABELLED_BRIEF
 
 
-def test_a_partial_brief_does_not_invent_missing_values():
-    facts = elicitation.explicit_protocol_facts("Title: Pilot\nDuration: 30 minutes")
-    assert {f["target"] for f in facts} == {"study.title", "session.durationMinutes"}
-    assert not elicitation.is_complete_brief("Title: Pilot\nDuration: 30 minutes")
-
-
-def test_prose_with_a_colon_is_not_a_labelled_field():
-    assert elicitation.labelled_fields("Note: remember to recruit") == {}
-
-
-def test_explicit_answer_is_recorded_before_a_model_can_loop(client, monkeypatch):
-    from middleware import design_llm
-
-    def should_not_run(*_args, **_kwargs):
-        raise AssertionError("a plain task answer should not need an LLM turn")
-
-    monkeypatch.setattr(design_llm, "propose_turn", should_not_run)
+def test_explicit_task_answer_becomes_a_reviewable_plan_part(client, monkeypatch):
+    model = model_double.always(
+        model_double.talk("I’ll use that task.", taskDescription="Fix a Python bug")
+    )
+    monkeypatch.setattr(assistant, "make_design_client", lambda: model)
     reply = _ask(client, "Yes, they will fix a Python bug.")
-    assert reply["source"] == "scripted"
-    assert [move["kind"] for move in reply["moves"]] == ["declare-task"]
-    assert reply["moves"][0]["patch"]["title"] == "Fix Python bug"
+    assert reply["source"] == "llm"
+    (move,) = reply["moves"]
+    assert move["kind"] == "set-plan"
+    assert move["status"] == "proposed"
+    assert move["patch"]["plan"] == {"taskDescription": "Fix a Python bug"}
 
 
 def test_an_explicit_request_lowers_the_bar_but_not_to_zero():
@@ -188,10 +76,13 @@ def test_an_explicit_request_lowers_the_bar_but_not_to_zero():
     assert not elicitation.ready_for_design(two)
 
 
-def test_a_vague_opener_gets_a_question_not_a_design(client):
+def test_a_vague_opener_can_return_a_question_without_cards(client, monkeypatch):
+    question = "What coding task could your participants do?"
+    model = model_double.always(model_double.talk("Let’s narrow the study.", question))
+    monkeypatch.setattr(assistant, "make_design_client", lambda: model)
     reply = _ask(client, "I want to study AI and productivity")
-    assert [m for m in reply["moves"] if m["kind"] == "choose-template"] == []
-    assert reply["text"].count("?") == 1
+    assert reply["moves"] == []
+    assert reply["questions"] == [{"ask": question, "options": []}]
     assert reply["understanding"]["nextQuestion"]
     assert reply["understanding"]["readyForDesign"] is False
     assert reply["understanding"]["missing"]
@@ -247,45 +138,55 @@ def test_scope_gate_blocks_exam_and_other_non_developer_studies(client):
     assert other["moves"] == []
 
 
-def test_asking_for_a_design_from_nothing_does_not_produce_one(client):
-    """The complaint: being boxed in immediately."""
+def test_a_design_request_can_ask_for_study_details(client, monkeypatch):
+    question = "Who can you recruit?"
+    model = model_double.always(
+        model_double.talk("Recruitment depends on your study.", question)
+    )
+    monkeypatch.setattr(assistant, "make_design_client", lambda: model)
     reply = _ask(client, "what design and statistics should I use?")
-    assert reply["turnIntent"] == "design-request"
-    assert [m for m in reply["moves"] if m["kind"] == "choose-template"] == []
+    assert reply["moves"] == []
+    assert reply["questions"] == [{"ask": question, "options": []}]
 
 
-def test_a_described_study_does_reach_a_design(client):
-    """
-    The gate must open  -  an elicitation loop with no exit is worse than proposing too
-    early.
-    """
+def test_a_described_study_can_reach_a_design_in_a_later_turn(client, monkeypatch):
+    model = model_double.in_turn(
+        [model_double.talk("Understood."), model_double.draft()]
+    )
+    monkeypatch.setattr(assistant, "make_design_client", lambda: model)
     _ask(client, SKETCH)
     reply = _ask(client, "what design and statistics should I use?")
     assert reply["understanding"]["readyForDesign"] is True
-    assert [m for m in reply["moves"] if m["kind"] == "choose-template"]
+    assert any(m["patch"]["part"] == "design" for m in reply["moves"])
 
 
-def test_why_gets_an_answer_not_new_proposals(client):
-    """The reported defect: asked 'why?', the platform proposed new things."""
-    _ask(client, SKETCH)
-    proposed = _ask(client, "what design and statistics should I use?")
+@pytest.mark.parametrize("question", ["Why did you give me this?", "Why that design?"])
+def test_answers_only_followup_leaves_the_proposed_plan_intact(
+    client, monkeypatch, question
+):
+    model = model_double.always(model_double.draft("Order effects matter here."))
+    monkeypatch.setattr(assistant, "make_design_client", lambda: model)
+    proposed = _ask(client, SKETCH)
     assert proposed["moves"], "precondition: something was proposed to ask about"
 
-    answer = _ask(client, "why did you give me this?")
-    assert answer["turnIntent"] == "followup-question"
-    assert [m for m in answer["moves"] if m["kind"] != "caution"] == []
-    assert answer["text"]
+    answer = _ask(client, question, steer="checks")
+    assert answer["moves"] == []
+    assert answer["text"] == "Order effects matter here."
+    turns = client.get(f"/studies/{STUDY}/conversation").json()["turns"]
+    assert turns[1]["moves"][0]["status"] == "proposed"
 
 
-def test_a_gated_turn_still_keeps_its_safe_moves(client):
-    """
-    Withholding the design shape is not a reason to withhold a grounded caution  -  the
-    turn stays useful while it asks.
-    """
+def test_a_partial_description_can_propose_one_decision(client, monkeypatch):
+    model = model_double.always(
+        model_double.talk(
+            "Let’s start here.", participantDescription="Junior developers"
+        )
+    )
+    monkeypatch.setattr(assistant, "make_design_client", lambda: model)
     reply = _ask(client, "I think junior developers over-trust AI-generated code")
     assert reply["understanding"]["readyForDesign"] is False
-    assert reply["moves"], "safe moves should survive the design gate"
-    assert all(m["kind"] != "choose-template" for m in reply["moves"])
+    (move,) = reply["moves"]
+    assert move["patch"]["plan"] == {"participantDescription": "Junior developers"}
 
 
 def test_understanding_accumulates_across_turns(client):
@@ -297,26 +198,27 @@ def test_understanding_accumulates_across_turns(client):
     assert "population" in known and "task" in known
 
 
-def test_stuck_researcher_gets_explanation_and_actionable_measure_card(client):
+def test_requested_measure_guidance_can_include_a_plan_card(client, monkeypatch):
+    model = model_double.in_turn(
+        [
+            model_double.talk("Understood."),
+            model_double.talk(
+                "Start with task time and add correctness if the task allows it.",
+                measureIds=["E1"],
+            ),
+        ]
+    )
+    monkeypatch.setattr(assistant, "make_design_client", lambda: model)
     _ask(
         client,
         "I want junior engineers to debug code with AI and without AI in a "
         "45-minute lab session.",
     )
     reply = _ask(client, "I don't know you help me")
-    assert reply["turnIntent"] == "needs-scaffolding"
     assert "task time" in reply["text"]
     assert "correctness" in reply["text"]
-    assert [m["kind"] for m in reply["moves"]] == ["add-measure"]
-
-
-def test_an_unknown_profile_falls_back_to_the_default():
-    assert elicitation.profile_guidance("chief-scientist") == (
-        elicitation.profile_guidance(elicitation.DEFAULT_PROFILE)
-    )
-    assert elicitation.profile_guidance(None) == (
-        elicitation.profile_guidance(elicitation.DEFAULT_PROFILE)
-    )
+    (move,) = reply["moves"]
+    assert move["patch"]["plan"] == {"measureIds": ["E1"]}
 
 
 def test_the_profile_catalog_is_served(client):
@@ -327,74 +229,27 @@ def test_the_profile_catalog_is_served(client):
     assert all(p["label"] and p["description"] for p in body["profiles"])
 
 
-def test_the_profile_reaches_the_turn_directive(client):
-    """
-    A saved profile changes how the conversation talks (the directive the model is
-    given), without changing what counts as sound method.
-    """
-    from middleware.db import make_session_factory
-    from middleware.design_assistant import _directive, turn_stance
-
-    factory = make_session_factory(client.db_url)
-    with factory() as s:
-        student = _directive(turn_stance(s, SKETCH, study_id=None, profile="student"))
-        expert = _directive(
-            turn_stance(s, SKETCH, study_id=None, profile="experienced")
-        )
-    assert "STUDENT" in student and "STUDENT" not in expert
-    assert "EXPERIENCED" in expert
-    assert ("enough to design" in student) == ("enough to design" in expert)
-
-
-def test_a_researcher_naming_a_design_is_not_second_guessed(client):
-    """
-    The gate stops the *platform* boxing someone in  -  it was never meant to overrule a
-    researcher who names the design themselves.
-    """
+def test_a_researcher_can_name_a_design_before_describing_everything(
+    client, monkeypatch
+):
+    model = model_double.always(
+        model_double.talk("A crossover works here.", design="within-subjects")
+    )
+    monkeypatch.setattr(assistant, "make_design_client", lambda: model)
     reply = _ask(client, "let's run a within-subjects crossover study")
     assert reply["understanding"]["readyForDesign"] is False
-    assert [m for m in reply["moves"] if m["kind"] == "choose-template"], (
-        "a design the researcher named must be recorded, not withheld"
-    )
+    (move,) = reply["moves"]
+    assert move["patch"]["plan"] == {"design": "within-subjects"}
 
 
-def test_asking_what_design_to_use_is_not_naming_one(client):
-    """
-    'what design should I use?' must not read as an answer to itself  -  'design' is a
-    word in nearly every template's title.
-    """
-    reply = _ask(client, "what design should I use?")
-    assert [m for m in reply["moves"] if m["kind"] == "choose-template"] == []
-
-
-def test_naming_a_template_id_is_naming_a_design(client):
-    """
-    The repertoire's "describe your study instead" entry point seeds a study's opening
-    turn with the template ids a researcher selected, so the assistant proposes the
-    pairing rather than asking which shapes they mean. Naming an id must open the
-    design gate  -  an explicit ask is never overruled by the facet gate.
-    """
-    from middleware.db import make_session_factory
-    from middleware.design_assistant import turn_stance
-
-    factory = make_session_factory(client.db_url)
-    with factory() as s:
-        stance = turn_stance(
-            s, "merge metr-rct-v1 with survey-self-report-v1", study_id=None
-        )
-    assert stance["namedDesign"] is True
-    assert stance["mayProposeDesign"] is True
-
-
-def test_asking_why_about_a_named_design_still_answers(client):
-    """
-    A follow-up question never opens the gate, or 'why the crossover?' would re-propose
-    the crossover instead of explaining it.
-    """
-    _ask(client, "let's run a within-subjects crossover study")
-    reply = _ask(client, "why that crossover design?")
-    assert reply["turnIntent"] == "followup-question"
-    assert [m for m in reply["moves"] if m["kind"] != "caution"] == []
+def test_template_ids_from_the_repertoire_reach_the_model(client, monkeypatch):
+    requests = []
+    model = model_double.silent(requests)
+    monkeypatch.setattr(assistant, "make_design_client", lambda: model)
+    message = "Could we combine metr-rct-v1 with survey-self-report-v1?"
+    reply = _ask(client, message)
+    assert reply["source"] == "llm"
+    assert message in requests[0]["messages"][-1]["content"]
 
 
 def test_understanding_summary_asks_nothing_once_every_facet_is_known():
@@ -402,72 +257,16 @@ def test_understanding_summary_asks_nothing_once_every_facet_is_known():
     assert elicitation.understanding_summary(understanding)["nextQuestion"] == ""
 
 
-def test_a_pasted_brief_keeps_its_cards_with_no_model_configured(client, monkeypatch):
-    from middleware import assistant
-
-    monkeypatch.setattr(assistant, "make_design_client", lambda: None)
-    reply = _ask(client, LABELLED_BRIEF)
-    assert {"study.title", "participants.design"} <= {
-        m["target"] for m in reply["moves"]
-    }
-
-
-def test_a_labelled_population_is_not_also_inferred_from_prose():
-    targets = [
-        f["target"]
-        for f in elicitation.explicit_protocol_facts(
-            LABELLED_BRIEF + "\nNovice developers will fix a Python bug."
-        )
-    ]
-    assert "participants.description" in targets
-    assert "participants[]" not in targets
-
-
-def test_a_brief_keeps_a_design_card_with_no_model_configured(client, monkeypatch):
-    from middleware import assistant
-
-    monkeypatch.setattr(assistant, "make_design_client", lambda: None)
-    reply = _ask(client, LABELLED_BRIEF)
-    design = [m for m in reply["moves"] if m["kind"] == "choose-template"]
-    assert len(design) == 1
-    assert design[0]["patch"]["templateId"] == "within-subjects-crossover-v1"
-
-
-FULL_BRIEF = (
-    "I want to compare AI-assisted and unassisted developers fixing three seeded "
-    "bugs in a Python app, within-subjects, 12 professional developers, 30 minutes "
-    "per condition, measuring task completion time and solution correctness, "
-    "using TERN in VS Code."
+@pytest.mark.parametrize(
+    "brief", [LABELLED_BRIEF, "Let's run a within-subjects study."]
 )
-
-
-def _facts_by_path(text):
-    return {
-        tuple(m["patch"].get("path") or ()): m
-        for m in elicitation.explicit_protocol_facts(text)
-        if m["patch"].get("op") == "set-field"
-    }
-
-
-def test_full_brief_records_participants_duration_and_declared_capture():
-    facts = _facts_by_path(FULL_BRIEF)
-    assert facts[("participants", "planned")]["patch"]["value"] == 12
-
-    assert facts[("session", "durationMinutes")]["patch"]["value"] == 30
-
-    moves = [
-        m
-        for m in elicitation.explicit_protocol_facts(FULL_BRIEF)
-        if m["patch"].get("op") == "add-instrument"
-    ]
-    assert [m["patch"]["name"] for m in moves] == ["tern"]
-    assert moves[0]["patch"]["section"] == "instruments"
-    assert moves[0]["kind"] == "add-instrument"
-
-
-def test_tern_card_only_when_the_researcher_names_tern():
-    assert not [
-        m
-        for m in elicitation.explicit_protocol_facts("12 developers fixing a bug.")
-        if m["patch"].get("op") == "add-instrument"
-    ]
+def test_without_a_model_a_brief_is_saved_and_manual_setup_remains_available(
+    client, monkeypatch, brief
+):
+    monkeypatch.setattr(assistant, "make_design_client", lambda: None)
+    reply = _ask(client, brief)
+    assert reply["source"] == "unavailable"
+    assert reply["moves"] == []
+    assert "checklist" in reply["text"]
+    turns = client.get(f"/studies/{STUDY}/conversation").json()["turns"]
+    assert turns[0]["text"] == brief
