@@ -29,14 +29,15 @@ def test_arxiv_url_matches_the_shape_that_worked_live():
 
 
 def test_s2_url_carries_the_date_window_fields_and_optional_token():
-    p = _params(
-        f.s2_bulk_url("AI coding assistant", "2026-09-08", "2026-10-08", None, 100)
-    )
-    assert p["publicationDateOrYear"] == "2026-09-08:2026-10-08" and p["limit"] == "100"
+    p = _params(f.s2_bulk_url("AI coding assistant", "2026-09-08", "2026-10-08", None))
+    assert p["publicationDateOrYear"] == "2026-09-08:2026-10-08"
+    assert p["sort"] == "publicationDate:desc"
     assert (
         "abstract" in p["fields"] and "externalIds" in p["fields"] and "token" not in p
     )
-    assert _params(f.s2_bulk_url("q", "a", "b", "TOK", 5))["token"] == "TOK"
+    # /paper/search/bulk documents no page-size parameter; pages hold up to 1,000.
+    assert "limit" not in p
+    assert _params(f.s2_bulk_url("q", "a", "b", "TOK"))["token"] == "TOK"
 
 
 def test_arxiv_requests_are_spaced_by_three_seconds(monkeypatch):

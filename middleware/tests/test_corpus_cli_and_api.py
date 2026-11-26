@@ -217,6 +217,17 @@ def test_status_reports_the_last_refresh_and_candidate_counts(client):
         and body["lastRefresh"]["newCandidates"] == 4
     )
     assert isinstance(body["lastRefresh"]["ageDays"], int)
+    last = body["lastRefresh"]
+    assert (last["since"], last["until"]) == ("2026-09-08", "2026-10-08")
+    assert (last["fetched"], last["waiting"], last["admitted"]) == (4, 4, 0)
+    assert len(last["added"]) == 4
+    assert set(body["scheduler"]) == {"enabled", "intervalHours", "nextRunInHours"}
+    assert body["liveSearch"] == {
+        "paused": False,
+        "resumesInS": 0,
+        "lastError": "",
+        "added": 0,
+    }
 
 
 def test_candidates_route_lists_new_papers_best_first_and_is_read_only(client):

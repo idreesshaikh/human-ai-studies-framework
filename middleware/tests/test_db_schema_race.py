@@ -1,11 +1,15 @@
 """The schema-creation resilience guards in db._create_schema."""
 
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+
 import middleware.db as db_mod
 from middleware.db import (
     Base,
     _all_tables_present,
     _create_schema,
     _is_concurrent_create_race,
+    _migrate_conversation_questions,
 )
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
@@ -59,6 +63,34 @@ def test_all_tables_present_false_on_a_bare_database(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'empty.sqlite3'}")
     assert inspect(engine).get_table_names() == []
     assert not _all_tables_present(engine)
+
+
+def test_existing_conversation_questions_schema_upgrades_concurrently(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'questions.sqlite3'}")
+    with engine.begin() as conn:
+        conn.exec_driver_sql(
+            "CREATE TABLE conversation_turns (id TEXT PRIMARY KEY, text TEXT)"
+        )
+        conn.exec_driver_sql(
+            "INSERT INTO conversation_turns (id, text) "
+            "VALUES ('turn-1', 'Existing turn')"
+        )
+    workers = 8
+    ready = Barrier(workers, timeout=10)
+
+    def upgrade():
+        ready.wait()
+        _migrate_conversation_questions(engine)
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = [pool.submit(upgrade) for _ in range(workers)]
+        for future in futures:
+            future.result()
+
+    with engine.connect() as conn:
+        assert conn.exec_driver_sql(
+            "SELECT id, text, questions FROM conversation_turns"
+        ).one() == ("turn-1", "Existing turn", None)
 
 
 def _operational_error(message: str) -> OperationalError:

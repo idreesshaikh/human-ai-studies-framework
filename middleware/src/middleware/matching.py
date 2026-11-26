@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import math
 import re
+from collections import Counter
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from middleware import paper_index
+from middleware import corpus_scoring, paper_index
 from middleware.corpus_importer import VIA_EDGE_KIND
 from middleware.db import CORPUS_STUDY_ID, Paper, PaperEdge
 
@@ -18,17 +19,87 @@ log = logging.getLogger(__name__)
 
 _STOPWORDS = frozenset(
     [
-        "that", "this", "with", "from", "what", "were", "they", "have",
-        "been", "does", "their", "study", "using", "about", "would",
-        "could", "paper", "papers", "research", "the", "and", "for", "are",
-        "is", "to", "in", "of", "on", "or", "as", "an", "be", "do",
-        "how", "can", "you", "my", "we", "it", "will", "want", "think",
-        "one", "know", "not", "sure", "dont", "don", "t", "maybe", "just",
-        "which", "should", "use", "make", "more", "less", "than", "whether",
-        "people", "person", "participants", "participant", "session", "sessions",
-        "task", "tasks", "condition", "conditions", "compare", "comparison",
-        "design", "method", "methods", "measure", "measures", "measuring",
-        "result", "results", "effect", "effects",
+        "that",
+        "this",
+        "with",
+        "from",
+        "what",
+        "were",
+        "they",
+        "have",
+        "been",
+        "does",
+        "their",
+        "study",
+        "using",
+        "about",
+        "would",
+        "could",
+        "paper",
+        "papers",
+        "research",
+        "the",
+        "and",
+        "for",
+        "are",
+        "is",
+        "to",
+        "in",
+        "of",
+        "on",
+        "or",
+        "as",
+        "an",
+        "be",
+        "do",
+        "how",
+        "can",
+        "you",
+        "my",
+        "we",
+        "it",
+        "will",
+        "want",
+        "think",
+        "one",
+        "know",
+        "not",
+        "sure",
+        "dont",
+        "don",
+        "t",
+        "maybe",
+        "just",
+        "which",
+        "should",
+        "use",
+        "make",
+        "more",
+        "less",
+        "than",
+        "whether",
+        "people",
+        "person",
+        "participants",
+        "participant",
+        "session",
+        "sessions",
+        "task",
+        "tasks",
+        "condition",
+        "conditions",
+        "compare",
+        "comparison",
+        "design",
+        "method",
+        "methods",
+        "measure",
+        "measures",
+        "measuring",
+        "result",
+        "results",
+        "effect",
+        "effects",
     ]
 )
 
@@ -38,9 +109,24 @@ _STOPWORDS = frozenset(
 # fixing merely because the query also contains the word "code".
 _GENERIC_MATCH_TERMS = frozenset(
     {
-        "ai", "artificial", "intelligence", "code", "coding", "program",
-        "programming", "software", "developer", "developers", "tool", "tools",
-        "llm", "llms", "model", "models", "generative", "computer",
+        "ai",
+        "artificial",
+        "intelligence",
+        "code",
+        "coding",
+        "program",
+        "programming",
+        "software",
+        "developer",
+        "developers",
+        "tool",
+        "tools",
+        "llm",
+        "llms",
+        "model",
+        "models",
+        "generative",
+        "computer",
     }
 )
 
@@ -62,11 +148,20 @@ def paper_confidence(score: float | None) -> float | None:
     if score is None:
         return None
     return round(1.0 / (1.0 + math.exp(-(score - _CONF_MIDPOINT) / _CONF_SCALE)), 3)
+
+
 # The graph rung is the *floor* of the ladder - it must never outrank text evidence, so
 # its votes are capped and scaled well under one FTS hit.
 WEIGHT_GRAPH_VOTE = 0.15
 GRAPH_VOTE_CAP = 5
 GRAPH_SEED_MIN_TERMS = 2
+
+# Live search (``match_papers(live=True)``) runs only when fewer than this many
+# local results are strong: direct matches on at least LIVE_STRONG_TERMS specific
+# terms. LIVE_TERMS caps the specific terms sent to Semantic Scholar.
+LIVE_MIN_STRONG = 3
+LIVE_STRONG_TERMS = 2
+LIVE_TERMS = 6
 
 
 def _terms(text: str) -> list[str]:
@@ -187,98 +282,129 @@ def search_by_connectivity(s: Session, query: str, *, limit: int = 10) -> list[d
     return ranked[:limit]
 
 
-def rerank_with_llm(query: str, candidates: list[dict]) -> list[dict] | None:
-    """Reorder ``candidates`` and phrase one-line reasons via the configured model."""
-    from middleware import assistant
-
-    # Paper ranking is part of the assistant's visible reasoning trail. Use the
-    # same configured route as the design turn, with the knowledge model's
-    # larger context budget for citation-heavy reranking.
-    client = assistant.make_client()
-    if client is None or not candidates:
-        return None
-    menu = "\n".join(f"- {c['ref']}: {c.get('title', '')}" for c in candidates)
-    prompt = (
-        "A researcher described a study idea. Rank the following papers by "
-        "relevance to it and give a one-line reason each. Reply with a JSON "
-        'array of {"ref", "reason"}; use only refs from the list.\n\n'
-        f"Idea: {query}\n\nPapers:\n{menu}"
-    )
-    try:
-        res = client.post(
-            client.base_url,
-            {
-                "model": client.model,
-                "messages": [{"role": "user", "content": prompt}],
-                "response_format": {"type": "json_object"},
-                "max_tokens": 1024,
-            },
-            assistant.client_headers(client),
-        )
-        content = (res.get("choices") or [{}])[0].get("message", {}).get("content", "")
-        parsed = json.loads(content)
-        items = parsed if isinstance(parsed, list) else parsed.get("ranking", [])
-    except Exception as exc:  # noqa: BLE001 - any provider failure degrades
-        log.warning("LLM rerank unavailable, using FTS order: %s", exc)
-        return None
-    by_ref = {c["ref"]: c for c in candidates}
-    ranked = []
-    for item in items:
-        ref = item.get("ref") if isinstance(item, dict) else None
-        if ref in by_ref and by_ref[ref] not in ranked:
-            entry = dict(by_ref[ref])
-            reason = str(item.get("reason", "")).strip()
-            if reason:
-                entry["matchReason"] = reason
-            entry["rung"] = "llm"
-            ranked.append(entry)
-    return ranked or None
-
-
-_EXPANSION_CACHE: dict[str, str] = {}
-_EXPANSION_MAX = 512
-
-
-def expand_query(query: str) -> str:
+def _live_query(query: str) -> str:
     """
-    Bridge vocabulary gaps for keyword FTS by asking the LLM for the concepts and
-    synonyms a paper on this topic might use  -  the *semantic meaning* layer over the
-    inverted index, now searching real abstracts (``corpus-enrich``) rather than titles
-    alone.
+    A short keyword query for Semantic Scholar's relevance search: the query's most
+    repeated specific terms (a long chat context repeats its topic), plus up to two
+    broad ones to keep the search in the developer/AI domain. Empty when the query
+    has no specific term, since a broad-only search would not find evidence.
     """
-    q = query.strip()
-    if not q:
-        return q
-    if q in _EXPANSION_CACHE:
-        return _EXPANSION_CACHE[q]
-    from middleware import assistant
+    words = [
+        w
+        for w in re.findall(r"[A-Za-z0-9][A-Za-z0-9-]{1,}", query.lower())
+        if w not in _STOPWORDS
+    ]
+    counts = Counter(words)
+    order = {w: i for i, w in reversed(list(enumerate(words)))}
+    ranked = sorted(counts, key=lambda w: (-counts[w], order[w]))
+    specific = [w for w in ranked if w not in _GENERIC_MATCH_TERMS][:LIVE_TERMS]
+    if not specific:
+        return ""
+    broad = [w for w in ranked if w in _GENERIC_MATCH_TERMS][:2]
+    return " ".join(specific + broad)
 
-    client = assistant.make_client()
-    if client is None:
-        return q
-    prompt = (
-        "A researcher described a study idea. List 6-10 concise search keywords "
-        "and close synonyms a paper on this topic might use  -  comma-separated, "
-        "no explanation.\n\nIdea: " + q
+
+def _annotate(
+    candidate: dict,
+    *,
+    title: str,
+    abstract: str,
+    confidence: float | None,
+    query_terms: list[str],
+) -> dict:
+    """Score and explain one candidate from its title and abstract (local or live)."""
+    evidence_terms = _matched_terms(query_terms, f"{title} {abstract}")
+    title_matches = _matched_terms(query_terms, title)
+    specific_terms = [t for t in evidence_terms if t not in _GENERIC_MATCH_TERMS]
+    # A paper that matches only broad coding vocabulary is never a direct match.
+    # It may still be useful as adjacent reading, but it must not be presented as
+    # evidence for a study just because the query contains the word "code".
+    direct = bool(specific_terms)
+    candidate["score"] = (
+        candidate.get("score", 0.0)
+        # Direct language evidence is deliberately separated from source quality.
+        # This makes ranking explainable and prevents a famous, generic paper from
+        # crowding out a less-cited but on-topic one.
+        + (8.0 if direct else 0.0)
+        + WEIGHT_MATCHED_TERM * len(evidence_terms)
+        + len(title_matches)
+        + WEIGHT_CONFIDENCE * (confidence if confidence is not None else 0.0)
     )
-    try:
-        res = client.post(
-            client.base_url,
-            {
-                "model": client.model,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 120,
-            },
-            assistant.client_headers(client),
+    candidate["matchKind"] = "direct" if direct else "adjacent"
+    candidate["matchedTerms"] = (specific_terms or evidence_terms)[:5]
+    if direct:
+        location = "its title" if title_matches else "its abstract"
+        candidate["matchReason"] = (
+            f"Matches your study vocabulary in {location}: "
+            f"{', '.join(candidate['matchedTerms'][:4])}."
         )
-        msg = (res.get("choices") or [{}])[0].get("message", {})
-        extra = msg.get("content", "") or ""
-        expanded = (q + " " + extra.replace("\n", " ")).strip()[:_EXPANSION_MAX]
-    except Exception as exc:  # noqa: BLE001 - degrade to the raw query
-        log.warning("query expansion unavailable, using raw query: %s", exc)
-        expanded = q
-    _EXPANSION_CACHE[q] = expanded
-    return expanded
+    return candidate
+
+
+def _is_strong(candidate: dict) -> bool:
+    return (
+        candidate.get("matchKind") == "direct"
+        and len(candidate.get("matchedTerms", [])) >= LIVE_STRONG_TERMS
+    )
+
+
+def needs_live(results: list[dict], limit: int) -> bool:
+    """Whether local results are too few or too weak to skip a live search."""
+    strong = sum(1 for c in results[:limit] if _is_strong(c))
+    return strong < min(LIVE_MIN_STRONG, limit)
+
+
+def _live_candidates(
+    s: Session, query: str, query_terms: list[str], *, have: set[str]
+) -> list[dict]:
+    """Direct matches from a live Semantic Scholar search the corpus lacked."""
+    from middleware import corpus_live
+
+    keywords = _live_query(query)
+    if not keywords:
+        return []
+    this_year = datetime.now(UTC).year
+
+    def judged(rec: dict) -> dict:
+        conf = paper_confidence(corpus_scoring.candidate_score(rec, this_year))
+        cand = _annotate(
+            {"ref": rec["ref"], "rung": "live", "score": 0.0},
+            title=rec["title"],
+            abstract=rec.get("abstract") or "",
+            confidence=conf,
+            query_terms=query_terms,
+        )
+        cand["confidence"] = conf
+        return cand
+
+    # A live result must earn its place (and its corpus row) with specific evidence.
+    found = corpus_live.search(
+        s.get_bind(), keywords, keep=lambda rec: judged(rec)["matchKind"] == "direct"
+    )
+    out = []
+    for rec in found:
+        if rec["ref"] in have:
+            continue
+        cand = judged(rec)
+        conf = cand["confidence"]
+        cand.update(
+            title=rec["title"],
+            authors=rec.get("authors") or [],
+            year=rec.get("year"),
+            venue=_display_venue(rec.get("venue")),
+            identifier=(
+                f"doi:{rec['doi']}"
+                if rec.get("doi")
+                else (f"arXiv:{rec['arxivId']}" if rec.get("arxivId") else "")
+            ),
+            abstract=(rec.get("abstract") or "").strip()[:480],
+            inStudy=False,
+            confidence=conf,
+            source="semantic-scholar" if not rec.get("inCorpus") else "corpus",
+        )
+        have.add(rec["ref"])
+        out.append(cand)
+    return out
 
 
 def match_papers(
@@ -287,14 +413,25 @@ def match_papers(
     *,
     study_id: str | None = None,
     limit: int = 5,
-    use_llm: bool = True,
-    expand: bool = True,
+    use_llm: bool = False,
+    expand: bool = False,
+    live: bool = False,
 ) -> list[dict]:
-    """Run the ladder and return enriched recommendations (FR-LIT-9)."""
-    search_query = expand_query(query) if expand else query
+    """
+    Run the ladder and return enriched recommendations (FR-LIT-9).
+
+    Matching makes no model call: the design chat's model quota is one request per
+    researcher message. ``use_llm`` and ``expand`` are accepted for existing callers
+    and ignored. With ``live=True``, a query the corpus answers weakly (fewer than
+    :data:`LIVE_MIN_STRONG` direct matches on at least :data:`LIVE_STRONG_TERMS`
+    specific terms) also asks Semantic Scholar, within
+    :data:`corpus_live.LIVE_BUDGET_S`; new papers join the corpus. When S2 is slow,
+    rate-limited or down, the local results come back unchanged.
+    """
+    del use_llm, expand
     query_terms = _terms(query)
-    fts = search_by_fts(s, search_query, limit=limit * 2)
-    graph = search_by_connectivity(s, search_query, limit=limit * 2)
+    fts = search_by_fts(s, query, limit=limit * 2)
+    graph = search_by_connectivity(s, query, limit=limit * 2)
     combined: list[dict] = []
     seen: set[str] = set()
     for candidate in [*fts, *graph]:
@@ -338,61 +475,43 @@ def match_papers(
             abstract=(row.abstract or "").strip()[:480],
             inStudy=candidate["ref"] in study_refs,
             confidence=conf,
+            source="corpus",
         )
-        matched = _matched_terms(query_terms, f"{row.title} {row.abstract}")
-        title_matches = _matched_terms(query_terms, row.title)
-        expanded_matches = _matched_terms(
-            _terms(search_query), f"{row.title} {row.abstract}"
+        _annotate(
+            candidate,
+            title=row.title or "",
+            abstract=row.abstract or "",
+            confidence=conf,
+            query_terms=query_terms,
         )
-        evidence_terms = list(dict.fromkeys([*matched, *expanded_matches]))
-        specific_terms = [
-            term for term in evidence_terms if term not in _GENERIC_MATCH_TERMS
-        ]
-        # A paper that matches only broad coding vocabulary is never a direct match.
-        # It may still be useful as adjacent reading, but it must not be presented as
-        # evidence for a study just because the query contains the word "code".
-        direct = bool(specific_terms)
-        candidate["score"] = (
-            candidate.get("score", 0.0)
-            # Direct language evidence is deliberately separated from source
-            # quality. This makes ranking explainable and prevents a famous,
-            # generic paper from crowding out a less-cited but on-topic one.
-            + (8.0 if direct else 0.0)
-            + WEIGHT_MATCHED_TERM * len(evidence_terms)
-            + len(title_matches)
-            + WEIGHT_CONFIDENCE * (conf if conf is not None else 0.0)
-        )
-        candidate["matchKind"] = "direct" if direct else "adjacent"
-        candidate["matchedTerms"] = (specific_terms or evidence_terms)[:5]
-        if "matchReason" not in candidate and direct:
-            candidate["matchReason"] = _reason_for(
-                s,
-                query_terms,
-                candidate,
-                row,
-                matched_terms=specific_terms or evidence_terms,
-            )
-        elif "matchReason" not in candidate:
-            broad_terms = ", ".join((evidence_terms or ["the coding topic"])[:4])
-            candidate["matchReason"] = (
-                f"Adjacent work shares broad terms: {broad_terms}."
-            )
+        if "matchReason" not in candidate:
+            if candidate.get("via") and not candidate["matchedTerms"]:
+                candidate["matchReason"] = _graph_reason(s, candidate)
+            else:
+                broad = ", ".join(
+                    (candidate["matchedTerms"] or ["the coding topic"])[:4]
+                )
+                candidate["matchReason"] = f"Adjacent work shares broad terms: {broad}."
         enriched.append(candidate)
 
     # Graph-only results are useful adjacent reading, but the recommendation
     # rail must always prefer papers whose title or abstract answers the query.
-    enriched.sort(
-        key=lambda c: (
-            c.get("matchKind") != "direct",
-            -c.get("score", 0.0),
-            c["ref"],
+    def order(items: list[dict]) -> list[dict]:
+        return sorted(
+            items,
+            key=lambda c: (
+                c.get("matchKind") != "direct",
+                -c.get("score", 0.0),
+                c["ref"],
+            ),
         )
-    )
-    if use_llm:
-        reranked = rerank_with_llm(query, enriched)
-        if reranked is not None:
-            enriched = reranked
-    results = enriched[:limit]
+
+    enriched = order(enriched)
+    if live and needs_live(enriched, limit):
+        have = {c["ref"] for c in enriched} | study_refs
+        enriched = order(
+            [*enriched, *_live_candidates(s, query, query_terms, have=have)]
+        )
     return [
         {
             "ref": c["ref"],
@@ -407,8 +526,9 @@ def match_papers(
             "matchKind": c.get("matchKind", "adjacent"),
             "matchedTerms": c.get("matchedTerms", []),
             "matchReason": c.get("matchReason", ""),
+            "source": c.get("source", "corpus"),
         }
-        for c in results
+        for c in enriched[:limit]
     ]
 
 
@@ -431,42 +551,20 @@ def _public_identifier(row: Paper) -> str:
     return ""
 
 
-def _reason_for(
-    s: Session,
-    query_terms: list[str],
-    candidate: dict,
-    row: Paper,
-    *,
-    matched_terms: list[str] | None = None,
-) -> str:
-    """
-    A deterministic, honest reason: the matched terms (F9.2), or the vouching seeds for
-    a graph-only match.
-    """
-    matched = matched_terms or _matched_terms(
-        query_terms, f"{row.title} {row.abstract} {candidate.get('snippet', '')}"
-    )
-    if matched:
-        title_terms = _matched_terms(query_terms, row.title)
-        location = "its title" if title_terms else "its abstract"
-        return (
-            f"Matches your study vocabulary in {location}: "
-            f"{', '.join(matched[:4])}."
-        )
+def _graph_reason(s: Session, candidate: dict) -> str:
+    """An honest reason for a graph-only match: the seeds that vouch for it."""
     via = sorted(set(candidate.get("via", [])))
-    if via:
-        titles = list(
-            s.scalars(
-                select(Paper.title).where(
-                    Paper.study_id == CORPUS_STUDY_ID,
-                    Paper.paper_ref.in_(via),
-                )
+    titles = list(
+        s.scalars(
+            select(Paper.title).where(
+                Paper.study_id == CORPUS_STUDY_ID, Paper.paper_ref.in_(via)
             )
         )
-        if titles:
-            shown = ", ".join(titles[:2])
-            suffix = " and another paper" if len(titles) > 2 else ""
-            return f"Adjacent to {shown}{suffix} through the library graph."
+    )
+    if titles:
+        shown = ", ".join(titles[:2])
+        suffix = " and another paper" if len(titles) > 2 else ""
+        return f"Adjacent to {shown}{suffix} through the library graph."
     return "Adjacent work surfaced through the library graph."
 
 
@@ -489,7 +587,7 @@ def get_paper_metadata(s: Session, paper_ref: str) -> dict | None:
             .first()
         )
     if row is None:
-        return None
+        return _live_metadata(paper_ref)
     return {
         "ref": row.paper_ref,
         "title": row.title,
@@ -497,4 +595,22 @@ def get_paper_metadata(s: Session, paper_ref: str) -> dict | None:
         "venue": row.venue or "",
         "confidence": paper_confidence(row.score),
         "why": row.abstract,
+    }
+
+
+def _live_metadata(paper_ref: str) -> dict | None:
+    """A paper live search just returned whose corpus row has not landed yet."""
+    from middleware import corpus_live
+
+    rec = corpus_live.recent(paper_ref)
+    if rec is None:
+        return None
+    score = corpus_scoring.candidate_score(rec, datetime.now(UTC).year)
+    return {
+        "ref": rec["ref"],
+        "title": rec["title"],
+        "year": rec.get("year"),
+        "venue": rec.get("venue") or "",
+        "confidence": paper_confidence(score),
+        "why": rec.get("abstract") or "",
     }
