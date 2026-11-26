@@ -5,7 +5,9 @@ import type {
   MoveStatus,
   ProtocolDraft,
   Recommendation,
+  PlanPart,
   Turn,
+  TurnQuestion,
   Understanding,
 } from "./types.ts";
 import { ApiError, getAuthToken, notifyUnauthorized } from "./api.ts";
@@ -23,9 +25,30 @@ type ConversationReply = {
   text: string;
   moves: Record<string, unknown>[];
   recommendations: Recommendation[];
+  questions?: unknown;
+  supersededMoveIds?: string[];
   source?: "llm" | "scripted" | "unavailable" | "scope";
   understanding?: Understanding;
 };
+
+type MappedReply = {
+  turns: Turn[];
+  understanding?: Understanding;
+  supersededMoveIds: string[];
+};
+
+/** The assistant's questions, keeping only well-formed ones. */
+function mapQuestions(raw: unknown): TurnQuestion[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((item) => {
+    const q = item as Record<string, unknown> | null;
+    if (!q || typeof q.ask !== "string" || !q.ask) return [];
+    const options = Array.isArray(q.options)
+      ? q.options.filter((o): o is string => typeof o === "string" && o.length > 0)
+      : [];
+    return [{ ask: q.ask, options }];
+  });
+}
 
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -111,6 +134,23 @@ function mapGrounding(raw: unknown[]): Grounding[] {
 function mapPatch(raw: unknown): DesignMove["patch"] {
   if (!raw || typeof raw !== "object") return undefined;
   const patch = raw as Record<string, unknown>;
+  const record = (value: unknown) =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : undefined;
+  // A set-plan card: the plan values it sets and the ones they replace.
+  const plan = record(patch.plan);
+  if (typeof patch.part === "string" && plan) {
+    const names = record(patch.names);
+    return {
+      part: patch.part as PlanPart,
+      plan,
+      before: record(patch.before) ?? {},
+      names: names
+        ? Object.fromEntries(Object.entries(names).map(([k, v]) => [k, String(v)]))
+        : undefined,
+    };
+  }
   // A choose-template move's patch: {templateId, parameters}  -  no
   // section/op at all, so it must be checked before the generic shape.
   if (typeof patch.templateId === "string" && patch.templateId) {
@@ -222,6 +262,7 @@ function mapTurn(raw: Record<string, unknown>): Turn {
     text: String(raw.text ?? ""),
     moves: ((raw.moves as Record<string, unknown>[]) ?? []).map(mapMove),
     recommendations: (raw.recommendations as Recommendation[]) ?? [],
+    questions: mapQuestions(raw.questions),
     source:
       raw.source === "llm" ||
       raw.source === "scripted" ||
@@ -232,7 +273,7 @@ function mapTurn(raw: Record<string, unknown>): Turn {
   };
 }
 
-function mapReply(reply: ConversationReply, text: string, author: string) {
+function mapReply(reply: ConversationReply, text: string, author: string): MappedReply {
   const researcher: Turn = {
     turnId: reply.researcherTurnId,
     role: "researcher",
@@ -248,9 +289,14 @@ function mapReply(reply: ConversationReply, text: string, author: string) {
     text: reply.text,
     moves: reply.moves.map(mapMove),
     recommendations: reply.recommendations ?? [],
+    questions: mapQuestions(reply.questions),
     source: reply.source,
   };
-  return { turns: [researcher, platform], understanding: reply.understanding };
+  return {
+    turns: [researcher, platform],
+    understanding: reply.understanding,
+    supersededMoveIds: reply.supersededMoveIds ?? [],
+  };
 }
 
 export interface CompileResult {
@@ -279,6 +325,16 @@ export interface ManualProtocolFields {
   participantDescription: string;
   plannedParticipants: number;
   taskDescription: string;
+  taskEdits?: {
+    id?: string;
+    title: string;
+    description: string;
+    minutes: number | null;
+    materials: string;
+    version: string;
+  }[];
+  additionalTaskDescription?: string;
+  additionalTaskMinutes?: number | null;
   sessionMinutes: number;
   measures: string[];
   measureIds?: string[];
@@ -337,7 +393,7 @@ export const conversationApi = {
     decision?: DecisionTrigger,
     requestId?: string,
     signal?: AbortSignal,
-  ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
+  ): Promise<MappedReply> {
     const reply = await post<ConversationReply>(
       `/studies/${encodeURIComponent(studyId)}/conversation/turns`,
       {
@@ -370,9 +426,8 @@ export const conversationApi = {
      * button). A cancelled turn rejects with an AbortError and is never
      * resent. */
     signal?: AbortSignal,
-  ): Promise<{ turns: Turn[]; understanding?: Understanding }> {
+  ): Promise<MappedReply> {
     let eventsReceived = 0;
-    let done: ConversationReply | null = null;
     try {
       const res = await fetch(
         `/studies/${encodeURIComponent(studyId)}/conversation/turns/stream`,
@@ -400,25 +455,29 @@ export const conversationApi = {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      for (;;) {
-        const { value, done: finished } = await reader.read();
-        if (finished) break;
-        buffer += decoder.decode(value, { stream: true });
-        // SSE frames are separated by a blank line; keep the partial tail.
-        const frames = buffer.split("\n\n");
-        buffer = frames.pop() ?? "";
-        for (const frame of frames) {
-          const event = /^event: (.+)$/m.exec(frame)?.[1];
-          const raw = /^data: (.*)$/m.exec(frame)?.[1];
-          if (!event || raw == null) continue;
-          const payload = JSON.parse(raw);
-          eventsReceived += 1;
-          if (event === "token") onToken?.(String(payload.text ?? ""));
-          else if (event === "done") done = payload;
-          else if (event === "error") throw new ApiError(payload.status ?? 500, String(payload.detail));
+      try {
+        for (;;) {
+          const { value, done: finished } = await reader.read();
+          if (finished) throw new Error("stream ended without a turn");
+          buffer += decoder.decode(value, { stream: true });
+          // Keep the partial frame for the next read, including a split CRLF.
+          const frames = buffer.split(/\r?\n\r?\n/);
+          buffer = frames.pop() ?? "";
+          for (const frame of frames) {
+            const event = /^event: (.+)$/m.exec(frame)?.[1];
+            const raw = /^data: (.*)$/m.exec(frame)?.[1];
+            if (!event || raw == null) continue;
+            const payload = JSON.parse(raw);
+            eventsReceived += 1;
+            if (event === "token") onToken?.(String(payload.text ?? ""));
+            else if (event === "done") return mapReply(payload as ConversationReply, text, author);
+            else if (event === "error") throw new ApiError(payload.status ?? 500, String(payload.detail));
+          }
         }
+      } finally {
+        // The final event already contains the saved turn. Don't wait for EOF.
+        void reader.cancel().catch(() => {});
       }
-      if (!done) throw new Error("stream ended without a turn");
     } catch (error) {
       // Validation, permissions and rate limits apply to both endpoints.
       // Only a missing streaming endpoint warrants a compatibility fallback.
@@ -439,8 +498,6 @@ export const conversationApi = {
       }
       return this.sendTurn(studyId, text, author, steer, decision, requestId, signal);
     }
-
-    return mapReply(done, text, author);
   },
 
   async decide(studyId: string, moveId: string, status: MoveStatus) {

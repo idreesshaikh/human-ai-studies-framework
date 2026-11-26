@@ -68,9 +68,6 @@ export function EnrollmentPanel({
   const api = useApi();
   const [rows, setRows] = useState<EnrollmentTokenView[]>([]);
   const [catalog, setCatalog] = useState<ToggleCatalogEntry[]>([]);
-  const [popoverEntry, setPopoverEntry] = useState<ToggleCatalogEntry | null>(
-    null,
-  );
   const [copied, setCopied] = useState<string | null>(null);
   const [revokeError, setRevokeError] = useState("");
   /* Revoking cuts a participant off and cannot be undone, so it takes a
@@ -405,40 +402,32 @@ export function EnrollmentPanel({
                               c.path[0] === i.name &&
                               c.path[c.path.length - 1] === "enabled",
                           );
-                          const interactive = canToggle && Boolean(cat);
-                          const chip = (
-                            <span
-                              key={i.name}
-                              role={interactive ? "button" : undefined}
-                              title={i.name}
-                              tabIndex={interactive ? 0 : undefined}
-                              onClick={() => {
-                                if (canToggle && cat) setPopoverEntry(cat);
-                              }}
-                              onKeyDown={(e) => {
-                                if (
-                                  canToggle &&
-                                  cat &&
-                                  (e.key === "Enter" || e.key === " ")
-                                ) {
-                                  e.preventDefault();
-                                  setPopoverEntry(cat);
-                                }
-                              }}
-                              className={cn(
-                                "inline-flex min-h-6 items-center rounded-input border px-1.5 py-0.5 type-quantity",
-                                interactive
-                                  ? "cursor-pointer hover:bg-accent-wash"
-                                  : "",
-                                i.enabled
-                                  ? "border-accent text-accent"
-                                  : "border-border text-text-muted line-through",
-                              )}
-                            >
+                          const chipClass = cn(
+                            "inline-flex min-h-6 items-center rounded-input border px-1.5 py-0.5 type-quantity",
+                            i.enabled
+                              ? "border-accent text-accent"
+                              : "border-border text-text-muted line-through",
+                          );
+                          if (canToggle && cat && !synthetic) {
+                            return (
+                              <TogglePopover
+                                key={i.name}
+                                studyId={studyId}
+                                entry={cat}
+                                role={role}
+                                onToggle={load}
+                                title={i.name}
+                                className={cn(chipClass, "cursor-pointer hover:bg-accent-wash")}
+                              >
+                                {captureTokenLabel(i.name)}
+                              </TogglePopover>
+                            );
+                          }
+                          return (
+                            <span key={i.name} title={i.name} className={chipClass}>
                               {captureTokenLabel(i.name)}
                             </span>
                           );
-                          return chip;
                         })}
                         {t.captureConfig.producerStates && (
                             <span className="basis-full break-words type-caption text-text-muted">
@@ -499,18 +488,6 @@ export function EnrollmentPanel({
         {roster.total === 0 && <p role="status" className="type-note text-text-muted">No matching participants. Try another search.</p>}
         <Pagination {...roster} label="Participants" onChange={setPage} />
         </div>
-      )}
-      {!synthetic && popoverEntry && (
-        <TogglePopover
-          studyId={studyId}
-          entry={popoverEntry}
-          role={role}
-          onToggle={() => {
-            setPopoverEntry(null);
-            load();
-          }}
-          onClose={() => setPopoverEntry(null)}
-        />
       )}
     </Surface>
   );

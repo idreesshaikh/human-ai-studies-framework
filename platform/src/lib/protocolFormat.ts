@@ -83,6 +83,7 @@ function formatParticipants(p: Record<string, unknown>): ProtocolSection {
     bits.push(p.counterbalanced ? "counterbalanced" : "not counterbalanced");
   }
   const lines = bits.length ? [bits.join(" · ")] : [];
+  if (typeof p.description === "string" && p.description.trim()) lines.push(p.description);
   const agents = asArray(p.agents);
   if (agents.length) {
     const roster = agents
@@ -100,13 +101,22 @@ function formatConditions(conditions: unknown[]): ProtocolSection {
   return { heading: "Conditions", lines: conditions.map(asString).filter(Boolean) };
 }
 
-function formatSession(session: Record<string, unknown>): ProtocolSection {
+function comparableTaskText(text: string): string {
+  return text.trim().replace(/[.!?]+$/, "").toLowerCase();
+}
+
+function formatSession(session: Record<string, unknown>, tasks: unknown[] = []): ProtocolSection {
   const lines: string[] = [];
   if (typeof session.durationMinutes === "number") {
     lines.push(`${session.durationMinutes}-minute session.`);
   }
-  const task = asString(session.taskDescription).replace(/\s+/g, " ").trim();
-  if (task) lines.push(task);
+  const task = asString(session.taskDescription).trim();
+  const repeatsDeclaredTask = tasks.some((entry) => {
+    const declaredTask = asRecord(entry);
+    return [declaredTask.title, declaredTask.id, declaredTask.description]
+      .some((value) => typeof value === "string" && comparableTaskText(value) === comparableTaskText(task));
+  });
+  if (task && !repeatsDeclaredTask) lines.push(task);
   return { heading: "Session", lines };
 }
 
@@ -115,18 +125,32 @@ function formatSession(session: Record<string, unknown>): ProtocolSection {
  * Reads as a numbered list because the count matters: a within-subjects
  * study wants at least one task per condition. */
 function formatTasks(tasks: unknown[]): ProtocolSection {
-  const lines = tasks.map((entry) => {
+  const lines = tasks.flatMap((entry, index) => {
     const task = asRecord(entry);
-    const title = asString(task.title) || asString(task.id);
+    const rawTitle = asString(task.title).trim();
+    const title = rawTitle;
     const detail: string[] = [];
     if (typeof task.minutes === "number") detail.push(`${task.minutes} min`);
     const conditions = asArray(task.conditions).map(asString).filter(Boolean);
     if (conditions.length) detail.push(conditions.join(" / "));
     const materials = asString(task.materials);
-    if (materials) detail.push(materials);
-    return detail.length ? `${title}: ${detail.join(" · ")}` : title;
+    if (materials) detail.push(`Materials: ${materials}`);
+    const version = asString(task.version);
+    if (version) detail.push(`Version: ${version}`);
+    const taskLabel = title ? `Task ${index + 1}: ${title}` : `Task ${index + 1}`;
+    const label = detail.length ? `${taskLabel} · ${detail.join(" · ")}` : taskLabel;
+    const description = asString(task.description).trim();
+    return [label, ...(description && comparableTaskText(description) !== comparableTaskText(rawTitle) ? [description] : [])];
   });
   return { heading: "Tasks", lines: lines.filter(Boolean) };
+}
+
+function formatMeasures(measures: unknown[]): ProtocolSection {
+  return { heading: "Outcomes", lines: measures.map((entry) => {
+    if (typeof entry === "string") return entry;
+    const measure = asRecord(entry);
+    return asString(measure.construct) || asString(measure.id);
+  }).filter(Boolean) };
 }
 
 function formatInstruments(instruments: Record<string, unknown>): ProtocolSection {
@@ -170,6 +194,7 @@ const SECTION_ORDER = [
   "conditions",
   "session",
   "tasks",
+  "measures",
   "instruments",
   "analysisPlan",
   "literature",
@@ -181,6 +206,7 @@ const FORMATTERS: Record<(typeof SECTION_ORDER)[number], (value: unknown) => Pro
   conditions: (v) => formatConditions(asArray(v)),
   session: (v) => formatSession(asRecord(v)),
   tasks: (v) => formatTasks(asArray(v)),
+  measures: (v) => formatMeasures(asArray(v)),
   instruments: (v) => formatInstruments(asRecord(v)),
   analysisPlan: (v) => formatAnalysisPlan(asArray(v)),
   literature: (v) => formatLiterature(asArray(v)),
@@ -198,8 +224,13 @@ export function summarizeProtocol(
 ): ProtocolSection[] {
   const includeEmpty = options.includeEmpty === true;
   const sections: ProtocolSection[] = [];
+  const tasks = asArray(protocol.tasks);
   for (const key of SECTION_ORDER) {
-    const section = FORMATTERS[key](protocol[key]);
+    const section = key === "tasks"
+      ? formatTasks(tasks)
+      : key === "session"
+        ? formatSession(asRecord(protocol.session), tasks)
+        : FORMATTERS[key](protocol[key]);
     if (includeEmpty || section.lines.some((l) => l.trim())) {
       sections.push(section);
     }

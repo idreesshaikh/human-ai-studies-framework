@@ -46,7 +46,7 @@ export function validateManualProtocol(v: ManualFormValues): ManualProblem[] {
   const minParticipants = v.design === "between-subjects" ? 6 : 4;
   if (!inRange(v.plannedParticipants, minParticipants, 1000)) add("manual-planned", "Planned participants", `Enter a whole number from ${minParticipants} to 1000.`);
   if (!inRange(v.sessionMinutes, 15, 180)) add("manual-minutes", "Session length", "Enter minutes from 15 to 180.");
-  if (v.taskDescription.trim().length < 8 || v.taskDescription.trim().length > 500) add("manual-task", "Task", "Describe the task in 8 to 500 characters.");
+  if (v.taskDescription.trim().length < 8 || v.taskDescription.trim().length > 5000) add("manual-task", "Task", "Describe the task in 8 to 5,000 characters.");
   if (v.measures.length < 1 || v.measures.length > 6) add("manual-outcomes", "Outcomes", "Choose between one and six outcomes.");
   return out;
 }

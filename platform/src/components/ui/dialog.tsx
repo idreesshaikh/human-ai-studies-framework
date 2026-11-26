@@ -1,20 +1,28 @@
 import * as React from "react";
-import * as DialogPrimitive from "@radix-ui/react-dialog";
+import {
+  Dialog as DialogRoot,
+  DialogBackdrop,
+  DialogClose as DialogCloseBase,
+  DialogContent as DialogContentBase,
+  DialogDescription as DialogDescriptionBase,
+  DialogTitle as DialogTitleBase,
+  DialogTrigger as DialogTriggerBase,
+} from "@ui-sdk/react/dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { scrollEdges } from "@/lib/scrollEdges";
+import { asChildRender } from "@/components/ui/as-child";
 
-/* Radix supplies focus trapping and Escape handling; content scrolls within the viewport. */
-/* The last element focused OUTSIDE any dialog. Tracked once, for the whole
- * app, because a dialog opened from state has no trigger for Radix to restore
- * focus to and a keyboard user who closes one should not restart from tab stop
- * one. Listening on `focusin` catches the value while it is still true; reading
- * `document.activeElement` inside the dialog's own mount effect does not,
- * because focus has already moved in by then. */
+/* ui-sdk supplies the top layer, focus trap, Escape, outside press and inert
+ * page; content scrolls within the viewport. */
+/* The last element focused OUTSIDE any popup. Tracked once, for the whole
+ * app, because a dialog opened from state has no trigger to restore focus to,
+ * and Safari on macOS does not focus a clicked button, so "the element focused
+ * before it opened" is often <body>. A keyboard user who closes a dialog should
+ * not restart from tab stop one. */
 let lastFocusOutsideDialog: HTMLElement | null = null;
+const POPUP = '[role="dialog"], [role="menu"], [role="listbox"]';
 if (typeof document !== "undefined") {
-  // Safari/macOS need not focus a clicked button. Remember the stable opener
-  // before a transient menu replaces it, for state-driven dialogs too.
   document.addEventListener(
     "pointerdown",
     (event) => {
@@ -22,9 +30,7 @@ if (typeof document !== "undefined") {
       const opener = event.target.closest<HTMLElement>(
         "button, a[href], input, textarea, select, [tabindex]",
       );
-      if (opener && !opener.closest('[role="dialog"], [role="menu"]')) {
-        lastFocusOutsideDialog = opener;
-      }
+      if (opener && !opener.closest(POPUP)) lastFocusOutsideDialog = opener;
     },
     true,
   );
@@ -32,66 +38,99 @@ if (typeof document !== "undefined") {
     "focusin",
     (e) => {
       const t = e.target;
-      if (!(t instanceof HTMLElement)) return;
-      if (
-        t === document.body ||
-        t.hasAttribute("data-radix-focus-guard") ||
-        t.closest('[role="dialog"], [role="menu"]')
-      )
-        return;
+      if (!(t instanceof HTMLElement) || t === document.body || t.closest(POPUP)) return;
       lastFocusOutsideDialog = t;
     },
     true,
   );
 }
+const returnFocus = () =>
+  lastFocusOutsideDialog?.isConnected ? lastFocusOutsideDialog : null;
 
-export const Dialog = DialogPrimitive.Root;
-export const DialogTrigger = DialogPrimitive.Trigger;
+export function Dialog({
+  open,
+  defaultOpen,
+  onOpenChange,
+  children,
+}: {
+  open?: boolean;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  children?: React.ReactNode;
+}) {
+  /* Rendered at <body>, not in place: in place, every ancestor of the dialog
+   * stays outside the inert page (a scroll area that holds it reads as an
+   * unreachable region), clicks bubble through wrapping labels, and a dialog's
+   * form would nest inside a page form. */
+  return (
+    <DialogRoot
+      container={typeof document === "undefined" ? undefined : document.body}
+      open={open}
+      defaultOpen={defaultOpen}
+      onOpenChange={onOpenChange ? (next) => onOpenChange(next) : undefined}
+    >
+      {children}
+    </DialogRoot>
+  );
+}
+
+type TriggerProps = Omit<React.ComponentProps<"button">, "children" | "value"> & {
+  asChild?: boolean;
+  children?: React.ReactNode;
+};
+
+export function DialogTrigger({ asChild, children, ...props }: TriggerProps) {
+  return <DialogTriggerBase {...props} {...asChildRender(asChild, children)} />;
+}
+
+export function DialogClose({ asChild, children, ...props }: TriggerProps) {
+  return <DialogCloseBase {...props} {...asChildRender(asChild, children)} />;
+}
+
+const CloseIcon = ({ className }: { className?: string }) => (
+  <DialogCloseBase
+    aria-label="Close"
+    className={cn(
+      "flex size-8 shrink-0 items-center justify-center rounded-control text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text",
+      className,
+    )}
+  >
+    <X className="size-4" aria-hidden />
+  </DialogCloseBase>
+);
 
 /* Structured dialog: DialogHeader (title, one-line description, close), ONE
  * scrolling DialogBody, and a sticky DialogFooter (secondary left of primary).
  * The whole is capped to the viewport (dvh) so the footer is always visible,
  * and becomes a full-height sheet on phones (`.dialog` in index.css). A dialog
- * with no DialogBody keeps the legacy single scrolling plate (palette,
- * confirmations). */
-export const DialogContent = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
-    scrollable?: boolean;
-    /** Structured dialogs only: the wide (40rem) plate. */
-    wide?: boolean;
-  }
->(({ className, children, scrollable = true, wide, ...props }, ref) => {
+ * with no DialogBody keeps the single scrolling plate (palette, confirmations);
+ * `variant="drawer"` docks that plate to the left edge (mobile navigation). */
+export function DialogContent({
+  className,
+  children,
+  scrollable = true,
+  wide,
+  variant,
+  ...props
+}: Omit<React.ComponentProps<"div">, "children"> & {
+  children?: React.ReactNode;
+  scrollable?: boolean;
+  /** Structured dialogs only: the wide (40rem) plate. */
+  wide?: boolean;
+  variant?: "drawer";
+}) {
   const structured = React.Children.toArray(children).some(
     (child) => React.isValidElement(child) && child.type === DialogBody,
   );
   return (
-    <DialogPrimitive.Portal>
-      {/* The scrim is the record's own ink, not a generic black: over the
-       * atlas's cool ground a neutral black reads as a grey wash. */}
-      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-scrim data-[state=open]:animate-in data-[state=open]:fade-in" />
-      <DialogPrimitive.Content
-        ref={ref}
-        /* Radix returns focus to the trigger it owns; every dialog here is
-         * opened from state instead, so there was nothing for it to return to and
-         * focus fell to <body>. `lastFocusOutsideDialog` is tracked continuously
-         * at the document level, which is the only place that still knows what
-         * the researcher was on BEFORE the dialog stole focus. */
-        onCloseAutoFocus={(e) => {
-          const back = lastFocusOutsideDialog;
-          if (back && back.isConnected) {
-            e.preventDefault();
-            back.focus({ preventScroll: true });
-          }
-        }}
+    <>
+      <DialogBackdrop className="dialog-scrim" />
+      <DialogContentBase
+        finalFocus={returnFocus}
         className={cn(
           structured
             ? cn("dialog", wide && "dialog--wide")
-            : cn(
-                "fixed left-1/2 top-1/2 z-50 w-[min(30rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2",
-                "flex max-h-[calc(100dvh-2rem)] flex-col",
-                "rounded-plate border border-border bg-surface-raised p-5 shadow-lifted",
-              ),
+            : cn("dialog-plate", variant === "drawer" && "dialog-plate--drawer"),
           className,
         )}
         {...props}
@@ -111,29 +150,18 @@ export const DialogContent = React.forwardRef<
             >
               {children}
             </div>
-            <DialogPrimitive.Close
-              className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-control bg-surface-raised text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text"
-              aria-label="Close"
-            >
-              <X className="size-4" aria-hidden />
-            </DialogPrimitive.Close>
+            <CloseIcon className="absolute right-3 top-3 bg-surface-raised" />
           </>
         )}
-      </DialogPrimitive.Content>
-    </DialogPrimitive.Portal>
+      </DialogContentBase>
+    </>
   );
-});
-DialogContent.displayName = "DialogContent";
+}
 
 export const DialogHeader = ({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div className={cn("dialog-header", className)} {...props}>
     <div className="flex min-w-0 flex-col gap-1">{children}</div>
-    <DialogPrimitive.Close
-      className="-mr-2 -mt-1 flex size-8 shrink-0 items-center justify-center rounded-control text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text"
-      aria-label="Close"
-    >
-      <X className="size-4" aria-hidden />
-    </DialogPrimitive.Close>
+    <CloseIcon className="-mr-2 -mt-1" />
   </div>
 );
 
@@ -176,26 +204,10 @@ export const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLD
   <div className={cn("dialog-footer", className)} {...props} />
 );
 
-export const DialogTitle = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Title>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Title
-    ref={ref}
-    className={cn("type-subhead text-text", className)}
-    {...props}
-  />
-));
-DialogTitle.displayName = "DialogTitle";
+export function DialogTitle({ className, ...props }: Omit<React.ComponentProps<"h2">, "children"> & { children?: React.ReactNode }) {
+  return <DialogTitleBase className={cn("type-subhead text-text", className)} {...props} />;
+}
 
-export const DialogDescription = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Description>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Description
-    ref={ref}
-    className={cn("type-body text-text-muted", className)}
-    {...props}
-  />
-));
-DialogDescription.displayName = "DialogDescription";
+export function DialogDescription({ className, ...props }: Omit<React.ComponentProps<"p">, "children"> & { children?: React.ReactNode }) {
+  return <DialogDescriptionBase className={cn("type-body text-text-muted", className)} {...props} />;
+}

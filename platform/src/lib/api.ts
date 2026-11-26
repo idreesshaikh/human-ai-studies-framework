@@ -33,6 +33,8 @@ export interface Preferences {
 /** Storage details stay behind the study-first researcher interface. */
 export interface StudySummary {
   id: string;
+  /** The study's name as the researcher gave it; "" when the server has none. */
+  name?: string;
   projectSlug: string;
   hasProtocol: boolean;
   role: Role;

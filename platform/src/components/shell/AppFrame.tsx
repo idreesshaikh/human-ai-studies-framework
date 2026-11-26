@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink, useLocation, useMatch } from "react-router-dom";
 import {
   Menu,
   Moon,
@@ -29,7 +29,7 @@ import { usePanel, togglePanel } from "@/lib/panels";
 import { cn } from "@/lib/cn";
 import { signInHref } from "@/lib/returnTo";
 import { useRouteTitle } from "@/lib/useDocumentTitle";
-import { browserNameStore, studyDisplayName } from "@/lib/studyNames";
+import { browserNameStore, studyDisplayName, studyNamesVersion, subscribeStudyNames } from "@/lib/studyNames";
 
 const THEME_ICON = { light: Sun, dark: Moon };
 
@@ -37,7 +37,7 @@ const THEME_ICON = { light: Sun, dark: Moon };
  * button share height, radius, type and hover so none reads as a different
  * kind of thing. */
 const NAV_ITEM =
-  "type-control flex items-center gap-2 rounded-control border py-2 transition-all duration-standard";
+  "type-control flex items-center gap-2 rounded-control border py-2 transition-colors duration-standard";
 const NAV_ITEM_IDLE = "border-transparent text-text-muted hover:bg-zone-9 hover:text-text";
 
 /* The signed-in shell keeps the study list and shared settings in one rail. */
@@ -47,8 +47,10 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
   // No-auth mode already reports a credential.
   const signedOut = !hasCredential;
   const { pathname, search } = useLocation();
-  const isWorkspace = /^\/studies\/[^/]+/.test(pathname);
+  const studyId = useMatch("/studies/:id")?.params.id;
   const theme = useSyncExternalStore(subscribeTheme, getTheme, getTheme);
+  /* Re-read the study's name once its summary has remembered it. */
+  useSyncExternalStore(subscribeStudyNames, studyNamesVersion, studyNamesVersion);
   const navFolded = usePanel("nav");
   const [navOpen, setNavOpen] = useState(false);
   useEffect(() => {
@@ -59,10 +61,9 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
     desktop.addEventListener("change", closeOnDesktop);
     return () => desktop.removeEventListener("change", closeOnDesktop);
   }, []);
-  const studyId = /^\/studies\/([^/]+)/.exec(pathname)?.[1];
   useRouteTitle({
     studyName: studyId
-      ? studyDisplayName(browserNameStore(), decodeURIComponent(studyId))
+      ? studyDisplayName(browserNameStore(), studyId)
       : undefined,
   });
   const Icon = THEME_ICON[theme];
@@ -90,7 +91,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       className={({ isActive }) =>
         cn(
           NAV_ITEM,
-          folded ? "justify-center px-1.5" : "px-2.5",
+          folded ? "justify-center gap-0 px-1.5" : "gap-2 px-2.5",
           isActive || forceActive
             ? "control-axis"
             : NAV_ITEM_IDLE,
@@ -98,13 +99,20 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       }
     >
       <span className="shrink-0">{icon}</span>
-      <span className={folded ? "sr-only" : undefined}>{label}</span>
+      <span
+        className={cn(
+          "min-w-0 truncate transition-opacity duration-fast",
+          folded ? "w-0 overflow-hidden opacity-0" : "opacity-100",
+        )}
+      >
+        {label}
+      </span>
     </NavLink>
   );
 
   const navigationItems = (folded: boolean) => (
     <>
-      {navItem("/home", "Studies", <FlaskConical className="size-4" aria-hidden />, folded, pathname.startsWith("/studies/"))}
+      {navItem("/home", "Studies", <FlaskConical className="size-4" aria-hidden />, folded, !!studyId)}
       {navItem("/repertoire", "Templates", <Layers className="size-4" aria-hidden />, folded)}
       {navItem("/settings", "Account settings", <Settings className="size-4" aria-hidden />, folded)}
     </>
@@ -118,13 +126,10 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       <header className="flex items-center gap-2 border-b border-border bg-surface px-3 py-2 sm:gap-3 sm:px-4">
         {!signedOut && (
           <Dialog open={navOpen} onOpenChange={setNavOpen}>
-            <DialogTrigger className="header-control lg:hidden" aria-label="Toggle navigation">
+            <DialogTrigger className="header-control lg:hidden" aria-label="Toggle navigation" aria-expanded={navOpen}>
               <Menu className="size-5" aria-hidden />
             </DialogTrigger>
-            <DialogContent
-              aria-describedby={undefined}
-              className="left-0 top-0 h-dvh max-h-dvh w-56 translate-x-0 translate-y-0 rounded-none p-3"
-            >
+            <DialogContent variant="drawer" className="p-3">
               <DialogTitle className="px-2 py-3 type-subhead text-text">Navigation</DialogTitle>
               <nav aria-label="Main" className="mt-2 flex flex-col gap-1 p-1">
                 {navigationItems(false)}
@@ -176,7 +181,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem destructive onClick={signOut}>
+              <DropdownMenuItem destructive onSelect={signOut}>
                 <LogOut className="size-4" aria-hidden /> Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -191,7 +196,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           aria-label="Main"
           hidden={signedOut}
           className={cn(
-            "hidden shrink-0 border-r border-border-strong bg-surface transition-all duration-fast",
+            "hidden shrink-0 border-r border-border-strong bg-surface transition-[width] duration-standard ease-out",
             !signedOut && "lg:flex lg:flex-col",
             navFolded ? "w-[3.25rem]" : "w-56",
           )}
@@ -223,7 +228,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           </button>
           </div>
         </nav>
-        <main id="workspace-content" tabIndex={-1} className={cn("min-h-0 flex-1", isWorkspace ? "overflow-hidden" : "overflow-auto")}>
+        <main id="workspace-content" tabIndex={-1} className={cn("min-h-0 flex-1", studyId ? "overflow-hidden" : "overflow-auto")}>
           {children}
         </main>
       </div>

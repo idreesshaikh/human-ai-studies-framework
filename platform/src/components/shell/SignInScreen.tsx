@@ -1,5 +1,5 @@
 import { useId, useState, useSyncExternalStore } from "react";
-import { Link, Navigate, useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { KeyRound, Moon, Sun } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,7 @@ export function SignInScreen() {
      * `right-4` resolved against a 26rem column rather than the window, and
      * it hung in open space a third of the way across the screen instead of
      * sitting in the corner it was written for. */
-    <div
+    <main
       className="relative flex min-h-screen flex-col justify-center p-6"
     >
       <div className="absolute right-4 top-4 flex items-center gap-1">
@@ -47,14 +47,11 @@ export function SignInScreen() {
       </div>
 
       <div className="mx-auto flex w-full max-w-narrow flex-col">
-        <Link
-          to="/"
-          className="mb-8 flex flex-col items-center gap-2 text-center"
-          aria-label="StudyLoop, back to home"
-        >
-          <PhoenixMark size={40} />
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
+          <PhoenixMark size={36} />
           <span className="type-section text-text">StudyLoop</span>
-        </Link>
+          <p className="type-note text-text-muted">Design evidence-grounded developer studies</p>
+        </div>
 
         <Card>
           <CardContent className="flex flex-col gap-4 p-8">
@@ -63,28 +60,36 @@ export function SignInScreen() {
           </CardContent>
         </Card>
 
-        <Link
-          to="/"
-          className="mt-8 text-center type-body text-text-muted hover:text-text"
-        >
-          Back to home
-        </Link>
+        <p className="mt-6 text-center type-caption text-text-muted">
+          StudyLoop helps researchers configure, run and inspect human–AI developer studies.
+        </p>
       </div>
-    </div>
+    </main>
   );
 }
 
 function TokenForm() {
   const { signInWithToken } = useAuth();
   const [token, setToken] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState("");
   const fieldId = useId();
 
   return (
     <form
       className="form-stack"
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        if (token.trim()) signInWithToken(token);
+        if (!token.trim() || checking) return;
+        setChecking(true);
+        setError("");
+        try {
+          await signInWithToken(token);
+        } catch (error) {
+          setError(error instanceof Error ? error.message : "Could not sign in. Try again.");
+        } finally {
+          setChecking(false);
+        }
       }}
     >
       {/* A visible label and a stated source. The field carried its name in a
@@ -95,6 +100,8 @@ function TokenForm() {
       <Field
         id={fieldId}
         label="Session token"
+        required
+        error={error}
         hint={
           <>
             This instance signs in with a token rather than an account. Ask
@@ -110,11 +117,15 @@ function TokenForm() {
           type="password"
           autoComplete="current-password"
           value={token}
-          onChange={(e) => setToken(e.target.value)}
+          readOnly={checking}
+          onChange={(e) => {
+            setToken(e.target.value);
+            setError("");
+          }}
         />
       </Field>
-      <Button type="submit" disabled={!token.trim()} className="mt-1">
-        <KeyRound aria-hidden /> Sign in
+      <Button type="submit" disabled={!token.trim() || checking} className="mt-1">
+        <KeyRound aria-hidden /> {checking ? "Checking token…" : "Sign in"}
       </Button>
     </form>
   );

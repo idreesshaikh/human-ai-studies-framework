@@ -1,9 +1,20 @@
-import { useEffect, useRef, useState } from "react";
 import { Check, SlidersHorizontal } from "lucide-react";
+import {
+  Menu,
+  MenuContent,
+  MenuGroupLabel,
+  MenuItemIndicator,
+  MenuRadioGroup,
+  MenuRadioItem,
+  MenuTrigger,
+} from "@ui-sdk/react/menu";
 import { cn } from "@/lib/cn";
 import { STEER_STOPS, steerStop, type SteerLevel } from "@/lib/steer";
 
-/* Conversation mode controls the next response. Keep it beside the composer. */
+/* Conversation mode controls the next response. Keep it beside the composer.
+ * One choice of two, so a menu of radio items: arrow keys and typeahead move
+ * between styles, the chosen one is announced as checked, and Escape or an
+ * outside press closes it and returns focus to the trigger. */
 export function SteerDial({
   value,
   onChange,
@@ -14,89 +25,50 @@ export function SteerDial({
   className?: string;
 }) {
   const stop = steerStop(value);
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
 
   return (
-    <div
-      ref={rootRef}
-      className={cn("relative shrink-0", className)}
-    >
-      <button
-        type="button"
+    <Menu>
+      <MenuTrigger
         className={cn(
-          "inline-flex h-8 items-center gap-1.5 rounded-input px-2 text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text",
-          open && "bg-zone-9 text-text",
+          "inline-flex size-11 shrink-0 items-center justify-center rounded-input text-text-muted transition-colors duration-fast hover:bg-zone-9 hover:text-text data-open:bg-zone-9 data-open:text-text",
+          className,
         )}
-        aria-haspopup="dialog"
-        aria-expanded={open}
         aria-label={`Assistant style: ${stop.label}`}
         title={`Assistant style: ${stop.label}`}
-        onClick={() => setOpen((current) => !current)}
       >
         <SlidersHorizontal className="size-4 text-text-muted" aria-hidden />
-        {/* Icon-only on phones, where the label would squeeze the message box. */}
-        <span className="type-caption hidden sm:inline">{stop.label}</span>
-      </button>
-
-      {open && (
-        <div
-          role="dialog"
-          aria-label="Choose assistant style"
-          className="absolute bottom-full left-0 z-50 mb-2 w-64 rounded-card border border-border bg-surface-raised p-2 shadow-lifted"
+      </MenuTrigger>
+      <MenuContent side="top" align="start" sideOffset={8} collisionPadding={8} className="popup-panel w-64 p-2">
+        <MenuRadioGroup
+          value={stop.id}
+          onValueChange={(id) => {
+            const next = STEER_STOPS.find((option) => option.id === id);
+            if (next) onChange(next.level);
+          }}
+          className="space-y-1"
         >
-          <div className="px-2 pb-2 pt-1">
-            <p className="type-subhead text-text">Assistant style</p>
-            <p className="type-note mt-0.5 text-text-muted">
-              Whether replies can change your draft.
-            </p>
-          </div>
-          <div className="space-y-1">
-            {STEER_STOPS.map((option) => {
-              const selected = option.level === value;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => {
-                    onChange(option.level);
-                    setOpen(false);
-                  }}
-                  className={cn(
-                    "flex w-full items-start gap-2 rounded-input px-2 py-2 text-left transition-colors duration-fast hover:bg-zone-9",
-                    selected && "bg-accent-wash",
-                  )}
-                >
-                  <span className="flex size-4 shrink-0 items-center justify-center rounded-dot border border-control-edge bg-surface">
-                    {selected && <Check className="size-3 text-accent" aria-hidden />}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="type-control block text-text">{option.label}</span>
-                    <span className="type-caption block text-text-muted">{option.summary}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
+          <MenuGroupLabel className="type-label block px-2 pb-2 pt-1 text-text">Assistant style</MenuGroupLabel>
+          {STEER_STOPS.map((option) => (
+            <MenuRadioItem
+              key={option.id}
+              value={option.id}
+              label={option.label}
+              closeOnSelect
+              className="popup-item items-start gap-2 px-2 py-2 data-checked:bg-accent-wash"
+            >
+              <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-dot border border-control-edge bg-surface">
+                <MenuItemIndicator>
+                  <Check className="size-3 text-accent" aria-hidden />
+                </MenuItemIndicator>
+              </span>
+              <span className="min-w-0">
+                <span className="type-control block text-text">{option.label}</span>
+                <span className="type-caption block text-text-muted">{option.summary}</span>
+              </span>
+            </MenuRadioItem>
+          ))}
+        </MenuRadioGroup>
+      </MenuContent>
+    </Menu>
   );
 }

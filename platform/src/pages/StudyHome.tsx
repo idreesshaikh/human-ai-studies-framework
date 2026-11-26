@@ -1,14 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
-import {
-  ChevronLeft,
-  HelpCircle,
-  MessagesSquare,
-  Library,
-  BarChart3,
-  Target,
-  UserPlus,
-} from "lucide-react";
+import { ChevronLeft, HelpCircle } from "lucide-react";
 import { ConversationView } from "@/components/conversation/ConversationView";
 import { StudyTour } from "@/components/shell/StudyTour";
 import { ExportStudy } from "@/components/shell/ExportStudy";
@@ -18,7 +10,7 @@ import { useApi } from "@/lib/session";
 import { useAsync } from "@/lib/useAsync";
 import { roleOrNull } from "@/lib/role";
 import { cn } from "@/lib/cn";
-import { browserNameStore, studyDisplayName } from "@/lib/studyNames";
+import { browserNameStore, rememberStudyName, studyDisplayName } from "@/lib/studyNames";
 import { resolveStudyTab } from "@/lib/studyTabs";
 
 const LibraryTab = lazy(() => import("@/components/library/LibraryTab").then((module) => ({ default: module.LibraryTab })));
@@ -30,12 +22,12 @@ const EnrollmentPanel = lazy(() => import("@/components/enrollment/EnrollmentPan
 
 type Tab = "conversation" | "library" | "data" | "planning" | "enrollment";
 
-const TABS: { id: Tab; label: string; icon: typeof Library }[] = [
-  { id: "conversation", label: "Setup", icon: MessagesSquare },
-  { id: "library", label: "Literature", icon: Library },
-  { id: "planning", label: "Plan", icon: Target },
-  { id: "enrollment", label: "Run", icon: UserPlus },
-  { id: "data", label: "Data", icon: BarChart3 },
+const TABS: { id: Tab; label: string }[] = [
+  { id: "conversation", label: "Setup" },
+  { id: "library", label: "Literature" },
+  { id: "planning", label: "Plan" },
+  { id: "enrollment", label: "Run" },
+  { id: "data", label: "Data" },
 ];
 
 export function StudyHome() {
@@ -69,6 +61,7 @@ export function StudyHome() {
       : "";
 
   const [showTour, setShowTour] = useState(false);
+  const [exportError, setExportError] = useState<{ studyId: string; message: string | null } | null>(null);
   /* Return to the researcher’s selected tab when the walkthrough closes. */
   const tabBeforeTour = useRef<Tab>(tab);
 
@@ -96,6 +89,11 @@ export function StudyHome() {
     : { status: "known" as const, role: currentStudy.role };
   const role = roleOrNull(roleState);
   const hasProtocol = currentStudy?.hasProtocol ?? false;
+  const studyName = studyDisplayName(browserNameStore(), id, currentStudy?.name);
+  const serverName = currentStudy?.name;
+  useEffect(() => {
+    if (serverName) rememberStudyName(browserNameStore(), id, serverName);
+  }, [id, serverName]);
 
   if (studyError && !currentStudy) {
     return (
@@ -132,13 +130,13 @@ export function StudyHome() {
             <span className="hidden shrink-0 text-border-strong sm:inline" aria-hidden>
               /
             </span>
-            <h1 className="type-control truncate text-text" title={studyDisplayName(browserNameStore(), id)}>
-              {studyDisplayName(browserNameStore(), id)}
+            <h1 className="type-control truncate text-text" title={studyName}>
+              {studyName}
             </h1>
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <ExportStudy studyId={id} />
+            <ExportStudy studyId={id} onError={(message) => setExportError({ studyId: id, message })} />
             <Button
               variant="ghost"
               size="icon"
@@ -149,6 +147,12 @@ export function StudyHome() {
             </Button>
           </div>
         </div>
+
+        {exportError?.studyId === id && exportError.message && (
+          <Notice kind="problem" className="mx-4 mb-2 [overflow-wrap:anywhere]">
+            {exportError.message}
+          </Notice>
+        )}
 
         <nav
           className="flex items-center gap-0.5 overflow-x-auto px-3 sm:gap-1"
@@ -167,16 +171,12 @@ export function StudyHome() {
                * action you can take", and a tab you are already on is a
                * position, not an action. */
               className={cn(
-                "type-control relative flex shrink-0 items-center gap-1.5 rounded-control rounded-b-none border border-b-0 px-2 py-2 transition-all duration-standard sm:px-2.5",
+                "type-control relative flex shrink-0 items-center rounded-control rounded-b-none border border-b-0 px-2 py-2 transition-colors duration-standard sm:px-2.5",
                 tab === t.id
                   ? "control-axis axis-under"
                   : "border-transparent text-text-muted hover:bg-zone-9 hover:text-text")}
             >
-              <t.icon className="hidden size-4 sm:block" aria-hidden />
-              {/* Keep every section named on phones; omit icons to make room. */}
-              <span>
-                {t.label}
-              </span>
+              <span>{t.label}</span>
             </button>
           ))}
         </nav>
@@ -193,7 +193,7 @@ export function StudyHome() {
              * whole workspace column off the side of a phone. A definite width
              * here is also what lets the citation wrap instead of clamp. */
             <div hidden={tab !== "conversation"} className="min-h-0 min-w-0 flex-1">
-              <ConversationView key={id} studyId={id} opening={opening} roleState={roleState} onProtocolChanged={reloadStudy} />
+              <ConversationView key={id} studyId={id} opening={opening} roleState={roleState} onProtocolChanged={reloadStudy} hasProtocol={hasProtocol} />
             </div>
           )}
           {tab === "library" && (

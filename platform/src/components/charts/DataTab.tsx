@@ -143,12 +143,8 @@ export function DataTab({
         <>
           {synthetic && (
             <Notice>
-              <strong>{SYNTHETIC_EXAMPLE_LABEL}</strong> Every session below was
-              simulated by <code>seed-example</code> to show how a study reads
-              once data arrives. No participant took part. The rows are marked
-              synthetic and are left out of data bundles, pilot estimates and
-              analysis recipes, so a downloaded data bundle for this study is
-              empty.
+              <strong>{SYNTHETIC_EXAMPLE_LABEL}</strong> All sessions are simulated.
+              Data exports, pilot estimates and analysis exclude these observations.
             </Notice>
           )}
           <details>

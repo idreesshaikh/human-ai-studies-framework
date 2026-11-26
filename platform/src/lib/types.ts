@@ -13,17 +13,9 @@ export interface Grounding {
   evidence?: import("./evidenceApi").EvidenceSnapshot;
 }
 
-/** One platform-proposed change to the protocol draft. */
-// Mirrors design_llm._ALLOWED_KINDS exactly  -  the server drops any kind
-// outside that set before a move ever reaches the wire, so this union is
-// complete by construction as long as the two stay in sync. It used to
-// carry "set-threshold", a kind the server has never sent, and was missing
-// three it does: "set-field" and "declare-task" (the direct protocol-slot
-// fills the conversation gained this session), "reconfigure-instrument"
-// (instrument tuning, e.g. the stuck-detector threshold), and
-// "prescribe-statistics" (an executable analysis recipe). A card for any of
-// the missing three rendered with no kind label at all  -  KIND_LABEL[kind]
-// is undefined for a key TypeScript never knew to require.
+/** One platform-proposed change to the protocol draft. The chat proposes
+ * ``set-plan`` cards (server: study_plan); the other kinds come from the
+ * checklist, the method comparison and studies recorded before them. */
 export type MoveKind =
   | "add-rq"
   | "choose-template"
@@ -35,9 +27,11 @@ export type MoveKind =
   | "add-measure"
   | "merge-templates"
   | "prescribe-statistics"
+  | "set-plan" // a change to one part of the study plan (server: study_plan)
   | "caution"; // a challenge to a choice  -  no draft change, just advice
 
-export type MoveStatus = "proposed" | "accepted" | "rejected";
+/** "superseded": a newer proposal for the same part of the plan replaced it. */
+export type MoveStatus = "proposed" | "accepted" | "rejected" | "superseded";
 
 export interface DesignMove {
   moveId: string;
@@ -71,6 +65,13 @@ export interface Turn {
   recommendations: Recommendation[];
   /* Platform-turn origin. Only llm turns propose moves; unavailable, scripted, and scope turns are persisted without model proposals. Absent for researcher turns. */
   source?: "llm" | "scripted" | "unavailable" | "scope";
+  /** What the assistant asked, with answer options the researcher can send. */
+  questions?: TurnQuestion[];
+}
+
+export interface TurnQuestion {
+  ask: string;
+  options: string[];
 }
 
 /** What the platform understands about the study so far (FR-CONV-10), and
@@ -125,7 +126,7 @@ export interface SectionPatch {
 }
 
 /** A ``choose-template`` move's patch  -  the *only* thing that can fill the
- * draft's mandatory `design` slot (server: design_llm.py). */
+ * draft's mandatory `design` slot (server: compiler.py). */
 export interface TemplatePatch {
   templateId: string;
   parameters?: Record<string, unknown>;
@@ -159,12 +160,30 @@ export interface FieldPatch {
   value: unknown;
 }
 
+/** The parts of a study plan a ``set-plan`` card can change. */
+export type PlanPart = "questions" | "design" | "participants" | "task" | "measures" | "title";
+
+/** A ``set-plan`` card's patch: the plan values it sets, and the decided
+ * values they replace (server: study_plan._cards). */
+export interface PlanPatch {
+  part: PlanPart;
+  plan: Record<string, unknown>;
+  before: Record<string, unknown>;
+  /** Display names of the measure ids the card sets. */
+  names?: Record<string, string>;
+}
+
 export type DraftPatch =
   | SectionPatch
   | TemplatePatch
   | InstrumentPatch
   | StatisticsPatch
-  | FieldPatch;
+  | FieldPatch
+  | PlanPatch;
+
+export function isPlanPatch(p: DraftPatch): p is PlanPatch {
+  return "part" in p && "plan" in p;
+}
 
 /** A value on a study-plan card that the assistant chose because the
  * researcher had not said it (server: study_plan._mark_suggestions). */

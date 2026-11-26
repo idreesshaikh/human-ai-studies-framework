@@ -18,16 +18,13 @@ export interface AuthConfig {
 
 interface AuthState {
   config: AuthConfig;
-  /** True once a 401 has come back and no sign-in surface is showing yet. */
-  needed: boolean;
   /** True until the server's sign-in mode is known. `Shell` renders neither
    * the app nor the sign-in screen meanwhile, so a reload never flashes the
    * sign-in card. */
   resolving: boolean;
-  /** Whether a credential exists, so `Shell` can gate before the first
-   * round-trip 401s. */
+  /** Whether the browser has a credential that the server hasn't rejected. */
   hasCredential: boolean;
-  signInWithToken: (token: string) => void;
+  signInWithToken: (token: string) => Promise<void>;
   signOut: () => void;
 }
 
@@ -35,10 +32,10 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<AuthConfig>({ mode: "none" });
-  const [needed, setNeeded] = useState(false);
+  const [credentialRejected, setCredentialRejected] = useState(false);
   const [resolving, setResolving] = useState(true);
 
-  useEffect(() => onUnauthorized(() => setNeeded(true)), []);
+  useEffect(() => onUnauthorized(() => setCredentialRejected(true)), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,9 +67,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const signInWithToken = useCallback((token: string) => {
-    localStorage.setItem("middleware.token", token.trim());
-    setNeeded(false);
+  const signInWithToken = useCallback(async (token: string) => {
+    const candidate = token.trim();
+    const response = await fetch("/me", {
+      headers: { Authorization: `Bearer ${candidate}` },
+      credentials: "include",
+    }).catch(() => null);
+    if (response?.status === 401 || response?.status === 403) {
+      throw new Error("That session token wasn’t accepted. Check it and try again.");
+    }
+    if (!response?.ok || !response.headers.get("content-type")?.includes("application/json")) {
+      throw new Error("Could not verify the session token. Try again in a moment.");
+    }
+    localStorage.setItem("middleware.token", candidate);
     // Views cache failed loads; a clean reload restarts them signed in.
     location.reload();
   }, []);
@@ -83,18 +90,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const hasCredential =
-    config.mode === "none" || localStorage.getItem("middleware.token") !== null;
+    config.mode === "none" ||
+    (!credentialRejected && localStorage.getItem("middleware.token") !== null);
 
   const value = useMemo(
     () => ({
       config,
-      needed,
       resolving,
       hasCredential,
       signInWithToken,
       signOut,
     }),
-    [config, needed, resolving, hasCredential, signInWithToken, signOut],
+    [config, resolving, hasCredential, signInWithToken, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

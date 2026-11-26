@@ -18,6 +18,7 @@ import type { CompileResult } from "@/lib/conversationApi";
 import { BlinkComparator } from "./BlinkComparator";
 import { hasEarlierVersion } from "@/lib/comparator";
 import { cleanProposalText } from "@/lib/uiText";
+import { summarizeProtocol } from "@/lib/protocolFormat";
 
 /* A YAML line whose whole value is an empty collection ("gates: []"): an unresolved slot
 * the "Still unresolved" line already names, so it is dropped. */
@@ -75,6 +76,13 @@ export function FinishReview({
   const earlierSourced = earlierMoves.filter(
     (move) => move.status === "accepted" && move.grounding.length > 0,
   );
+  const sections = compile?.protocol ? summarizeProtocol(compile.protocol) : [];
+  const tasks = Array.isArray(compile?.protocol?.tasks) ? compile.protocol.tasks : [];
+  const conditions = Array.isArray(compile?.protocol?.conditions) ? compile.protocol.conditions : [];
+  const participants = compile?.protocol?.participants;
+  const withinSubjects = Boolean(participants && typeof participants === "object" && "design" in participants && participants.design === "within-subjects");
+  const study = compile?.protocol?.study;
+  const studyTitle = study && typeof study === "object" && "title" in study && typeof study.title === "string" ? study.title : "";
   const valid = compile?.valid ?? false;
   const warnings = compile?.warnings ?? [];
   const diffLines = useMemo(
@@ -92,20 +100,81 @@ export function FinishReview({
         <DialogHeader>
           <DialogTitle>Review draft</DialogTitle>
           <DialogDescription>
-            Check the draft, then apply it as the study's protocol.
+            Validation checks the protocol format. Review the study design before applying it.
           </DialogDescription>
         </DialogHeader>
         {applyError && <Notice kind="problem" className="mx-gutter mt-2">{applyError}</Notice>}
         <DialogBody>
 
-        {/* One summary line, not three hero-metric cells. */}
-        <p className="type-body text-text-muted">
-          <span className="type-quantity text-text">{accepted.length}</span>{" "}
-          {accepted.length === 1 ? "decision" : "decisions"} accepted:{" "}
-          <span className="type-quantity text-text">{grounded}</span> with linked
-          sources, <span className="type-quantity text-text">{judgment}</span> without
-          linked sources.
-        </p>
+        <section aria-labelledby="current-protocol-heading">
+          <h3 id="current-protocol-heading" className="type-subhead text-text">Current protocol</h3>
+          {studyTitle && <p className="mt-3 type-body font-medium text-text">{studyTitle}</p>}
+          {sections.length > 0 ? (
+            <div className="mt-4 flex flex-col gap-4">
+              {sections.filter((section) => section.heading !== "Instruments" && section.heading !== "Literature").map((section) => (
+                <section key={section.heading}>
+                  <h4 className="type-label text-text">{section.heading}</h4>
+                  {section.heading === "Tasks" && (
+                    <div className="mt-1 flex flex-col gap-1">
+                      {tasks.some((task) => !task || typeof task !== "object" || !("minutes" in task)) && (
+                        <p className="type-note text-text-muted">Some tasks have no time estimate.</p>
+                      )}
+                      {(!withinSubjects || tasks.length >= conditions.length) && (
+                        <p className="type-note text-text-muted">
+                          {withinSubjects
+                            ? "Each participant gets one task per condition. Assignments rotate across participants."
+                            : "Each participant completes the tasks assigned to their condition."}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <ul className="mt-1 flex flex-col gap-1">
+                    {section.lines.map((line, index) => <li key={index} className="type-body whitespace-pre-wrap break-words text-text">{line}</li>)}
+                  </ul>
+                  {section.heading === "Session" && tasks.length === 0 && <p className="mt-1 type-note text-text-muted">No separate tasks are recorded. The session description is used as one task.</p>}
+                  {section.heading === "Session" && withinSubjects && conditions.length > 1 && tasks.length < conditions.length && (
+                    <Notice kind="note" className="mt-2">
+                      This within-subjects design has {tasks.length || 1} {tasks.length === 1 || tasks.length === 0 ? "task" : "tasks"} for {conditions.length} conditions. Participants will repeat a task, which may affect the comparison.
+                    </Notice>
+                  )}
+                </section>
+              ))}
+              {sections.some((section) => section.heading === "Instruments" || section.heading === "Literature") && (
+                <details>
+                  <summary className="type-control cursor-pointer text-text">Capture and literature</summary>
+                  {sections.filter((section) => section.heading === "Instruments" || section.heading === "Literature").map((section) => (
+                    <section key={section.heading} className="mt-3">
+                      <h4 className="type-label text-text">{section.heading}</h4>
+                      <ul className="mt-1 flex flex-col gap-1">
+                        {section.lines.map((line, index) => <li key={index} className="type-body whitespace-pre-wrap break-words text-text">{line}</li>)}
+                      </ul>
+                    </section>
+                  ))}
+                </details>
+              )}
+            </div>
+          ) : (
+            <p className="mt-2 type-body text-text-muted">{compiling ? "Checking the draft…" : "The current protocol is not available. Reopen this review to try again."}</p>
+          )}
+        </section>
+
+        <details className="mt-6 border-t border-border pt-4">
+          <summary className="type-control cursor-pointer text-text">Decision history</summary>
+        {/* One summary line, not three hero-metric cells. A draft with no
+          * decisions is the starting protocol (a template) as it stands. */}
+        {accepted.length === 0 ? (
+          <p className="type-body text-text-muted">
+            No decisions from the chat yet: this is the starting protocol as it stands.
+          </p>
+        ) : (
+          <p className="type-body text-text-muted">
+            <span className="type-quantity text-text">{accepted.length}</span>{" "}
+            {accepted.length === 1 ? "decision" : "decisions"} accepted:{" "}
+            <span className="type-quantity text-text">{grounded}</span> with linked
+            sources, <span className="type-quantity text-text">{judgment}</span> without
+            linked sources.
+          </p>
+        )}
         {accepted.length > 0 && (
           <p className="mt-1 type-note text-text-muted">
             Only sources linked to a decision are counted. Papers in Literature
@@ -146,7 +215,7 @@ export function FinishReview({
                 <span className="min-w-0 flex-1 break-words text-text">{cleanProposalText(m.proposal)}</span>
                 {m.grounding.length > 0 ? (
                   <span className="shrink-0 type-caption text-grounded" title="source linked to this decision">
-                    cited
+                    source linked
                   </span>
                 ) : (
                   <span className="shrink-0 type-caption text-unsourced" title="no source linked to this decision">
@@ -158,16 +227,18 @@ export function FinishReview({
           </ul>
         )}
 
-        <div className="mt-3">
-          <p className="mb-1 type-caption font-medium text-text-muted">
-            Compiled protocol {compiling ? "· checking latest draft" : valid ? "· validated" : "· not yet valid"}
-          </p>
+        </details>
+
+        <div className="mt-4">
+          <details>
+          <summary className="type-control cursor-pointer text-text">Protocol data</summary>
           <pre className="tabular whitespace-pre-wrap break-words rounded-input border border-border-strong bg-bg p-3 type-quantity text-text">
             {compile?.yaml?.trim() ||
               (accepted.length > 0
                 ? "The server couldn't compile this draft. Check your connection, then reopen this review."
                 : "The draft is still empty. Accept a few design moves first.")}
           </pre>
+          </details>
           {/* The comparator earns its place only once there is an earlier version to alternate against. */}
           {hasDiff && earlier && (
             <BlinkComparator lines={diffLines} className="mt-3" />

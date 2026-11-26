@@ -178,6 +178,7 @@ export function shouldFollowUpAfterDecision(
 /** The word a decided card wears: it matches the button that decided it. */
 export function moveStateLabel(status: string, kind: string): string {
   if (status === "rejected") return "Rejected";
+  if (status === "superseded") return "Replaced";
   if (status !== "accepted") return "";
   if (kind === "merge-templates") return "Merged";
   return kind === "caution" ? "Noted" : "Accepted";
@@ -194,6 +195,7 @@ const MOVE_NOUN: Record<string, string> = {
   "add-measure": "measure",
   "merge-templates": "design",
   "prescribe-statistics": "analysis plan",
+  "set-plan": "plan change",
 };
 
 /* The turn sent on the researcher's behalf after they decide a card. A
@@ -259,6 +261,51 @@ const EYEBROW_BY_SECTION: Record<string, string> = {
   ethics: "Ethics",
 };
 
+export const PLAN_PART_LABEL: Record<string, string> = {
+  questions: "Research questions",
+  design: "Design",
+  participants: "Participants",
+  task: "Task and session",
+  measures: "Outcome measures",
+  title: "Title",
+};
+
+/** The plan fields a card can set, as its rows name them. */
+export const PLAN_FIELD_LABEL: Record<string, string> = {
+  title: "Title",
+  researchQuestions: "Research questions",
+  design: "Design",
+  conditions: "Conditions",
+  participantDescription: "Who",
+  plannedParticipants: "How many",
+  taskDescription: "Task",
+  sessionMinutes: "Session length",
+  measureIds: "Measures",
+};
+
+/** One plan value in plain words; lists come back as items. */
+export function planValueText(
+  field: string,
+  value: unknown,
+  names: Record<string, string> = {},
+): string[] {
+  if (Array.isArray(value)) {
+    const items = value.map((v) => String(v));
+    if (field === "conditions") return [items.join(" vs ")];
+    if (field === "measureIds") return items.map((id) => names[id] ?? id);
+    return items;
+  }
+  if (value === undefined || value === null || value === "" || value === 0) return [];
+  if (field === "design") {
+    return [value === "within-subjects"
+      ? "Within-subjects, counterbalanced"
+      : "Between-subjects, two groups"];
+  }
+  if (field === "plannedParticipants") return [`${value} participants`];
+  if (field === "sessionMinutes") return [`${value} minutes`];
+  return [String(value)];
+}
+
 const EYEBROW_BY_KIND: Record<string, string> = {
   "add-rq": "Research question",
   "choose-template": "Design",
@@ -276,6 +323,10 @@ const EYEBROW_BY_KIND: Record<string, string> = {
 /** The card's eyebrow: a human noun matching the draft rail's sections. A
  *  patch that names its section wins over the move kind. */
 export function moveEyebrow(kind: string, patch?: unknown): string {
+  const part = (patch as { part?: unknown } | undefined)?.part;
+  if (kind === "set-plan" && typeof part === "string") {
+    return PLAN_PART_LABEL[part] ?? "Plan";
+  }
   const section = (patch as { section?: unknown } | undefined)?.section;
   if (kind !== "caution" && typeof section === "string" && EYEBROW_BY_SECTION[section]) {
     return EYEBROW_BY_SECTION[section];

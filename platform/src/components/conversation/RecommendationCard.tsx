@@ -30,9 +30,7 @@ export function RecommendationCard({
   const url = sourceUrl(rec.identifier);
 
   return (
-    <Card
-      className="animate-in fade-in slide-in-from-bottom-2 duration-entrance"
-    >
+    <Card className="rise-in">
       <CardContent className="flex flex-col gap-2 p-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">

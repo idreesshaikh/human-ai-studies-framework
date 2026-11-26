@@ -69,10 +69,10 @@ export function ControlAudit({ studyId, sessions, role, onUpdated, synthetic = f
     <section className="flex min-w-0 flex-col gap-3 border-t border-border pt-5" aria-label="Session review">
       <h2 className="type-section text-text">Session review</h2>
       <p className="max-w-reading type-note text-text-muted">
-        Inspect captured-use signals in control conditions. Accepted inline suggestions
-        and hooked-agent events count as evidence; provider queries, bulk edits and
-        pastes are ambiguous. No captured signal cannot establish that a participant
-        stayed AI-free.
+        Inspect recorded events in control conditions. Accepted inline suggestions
+        and hooked-agent events are reasons to review a session; provider queries,
+        bulk edits and pastes are ambiguous. No recorded signal cannot establish
+        that a participant stayed AI-free.
       </p>
       {synthetic && <p className="type-note text-text-muted">Example sessions only. Decisions are disabled.</p>}
       {error && <p className="type-note text-critical" role="alert">{error}</p>}
@@ -117,7 +117,7 @@ export function ControlAudit({ studyId, sessions, role, onUpdated, synthetic = f
                       <div className="flex min-w-0 flex-col gap-2 px-3 pb-4 type-note text-text-muted">
                         <p className="break-all">Session: {session.sessionId}</p>
                         {assessment && <>
-                          <ul className="list-disc space-y-1 pl-5">{assessment.reasons.filter((reason) => !/^Captured \d+ (agent_turn|tool_call) event\(s\)\.$/.test(reason)).map((reason) => <li key={reason}>{reason}</li>)}</ul>
+                          <ul className="list-disc space-y-1 pl-5">{assessment.reasons.filter((reason) => !/^Captured \d+ (agent_turn|tool_call) event\(s\)\.$/.test(reason)).map((reason) => <li key={reason}>{reason.replace("This confirms captured inline-completion use, not total AI use.", "Review this recorded event alongside the capture limits.")}</li>)}</ul>
                           <p>{Object.entries(assessment.counts).map(([name, count]) => `${SIGNALS[name] ?? name}: ${count}`).join(" · ") || "No signal counts recorded."}</p>
                         </>}
                         {!synthetic && <SessionControls
@@ -195,8 +195,7 @@ function SessionControls({
           disabled={!editable || busy}
           onChange={(e) => setPilot(e.target.checked)}
         />
-        <label className="flex flex-col gap-1">
-          <span className="type-label text-text">Include in analysis</span>
+        <Field label="Include in analysis">
           <Select
             value={inclusion}
             disabled={!editable || busy}
@@ -207,7 +206,7 @@ function SessionControls({
             ]}
             onValueChange={(v) => setInclusion(v as typeof inclusion)}
           />
-        </label>
+        </Field>
         <label className="flex min-w-48 flex-1 flex-col gap-1">
           <span className="type-label text-text">
             Reason for the decision or pilot tag

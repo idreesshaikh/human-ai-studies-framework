@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 
 /* Shared button variants and disabled states, using the design tokens. */
 const buttonVariants = cva(
-  "type-control inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-control px-4 text-center transition-all duration-fast disabled:pointer-events-none disabled:border-border disabled:bg-well disabled:text-text-muted disabled:shadow-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "type-control inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-control px-4 text-center transition-[background-color,border-color,color,box-shadow,transform] duration-fast disabled:pointer-events-none disabled:border-border disabled:bg-well disabled:text-text-muted disabled:shadow-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
