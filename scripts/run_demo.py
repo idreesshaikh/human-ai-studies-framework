@@ -19,24 +19,14 @@ import sys
 import tempfile
 from pathlib import Path
 
+from middleware import assistant
+
 ROOT = Path(__file__).resolve().parents[1]
 SERVER = (
     "import sys, uvicorn; "
     "from middleware.app import create_app; "
     "uvicorn.run(create_app(), host='127.0.0.1', port=int(sys.argv[1]))"
 )
-
-
-MODEL_ROUTE = ("LLM_",)
-LOCAL_HOSTS = ("localhost", "127.0.0.1", "[::1]")
-
-
-def has_model_route(environ) -> bool:
-    """A provider key, or a local OpenAI-compatible server that needs none."""
-    if environ.get("LLM_API_KEY"):
-        return True
-    base = environ.get("LLM_BASE_URL", "")
-    return any(f"//{host}" in base for host in LOCAL_HOSTS)
 
 
 def demo_environment(directory: Path, port: int, live: bool = False) -> dict[str, str]:
@@ -46,11 +36,9 @@ def demo_environment(directory: Path, port: int, live: bool = False) -> dict[str
     paper corpus in the background. Storage, sign-in and every other inherited
     server setting stay disposable either way, so an ``--env-file`` written for
     a deployment cannot point the demo at participant data."""
-    stripped = ("MIDDLEWARE_",) if live else (*MODEL_ROUTE, "MIDDLEWARE_")
+    stripped = ("MIDDLEWARE_",) if live else ("LLM_", "MIDDLEWARE_")
     env = {
-        key: value
-        for key, value in os.environ.items()
-        if not key.startswith(stripped)
+        key: value for key, value in os.environ.items() if not key.startswith(stripped)
     }
     env.update(
         DATABASE_URL="",
@@ -60,7 +48,7 @@ def demo_environment(directory: Path, port: int, live: bool = False) -> dict[str
         MIDDLEWARE_AUTH="none",
         MIDDLEWARE_PROTOCOL="",
         MIDDLEWARE_CORPUS_BOOTSTRAP="1" if live else "0",
-        MIDDLEWARE_REFRESH_INTERVAL_H="",
+        MIDDLEWARE_REFRESH_INTERVAL_H="off",
     )
     return env
 
@@ -77,7 +65,7 @@ def main() -> int:
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("port must be between 1 and 65535")
-    if args.live and not has_model_route(os.environ):
+    if args.live and not assistant.configured():
         parser.error(
             "--live needs a model provider: set LLM_API_KEY "
             "or LLM_BASE_URL for a local server. To use .env: uv run --no-sync "
@@ -97,12 +85,11 @@ def main() -> int:
         if seeded.returncode:
             return seeded.returncode
         mode = (
-            "Live example: the chat uses your model provider and makes paid "
+            "Live example: the chat uses your model provider and may make paid "
             "requests.\nLiterature suggestions start once the paper corpus has "
             "loaded (about a minute).\n"
             if args.live
-            else "Synthetic demo only. Chat has no live provider; use the "
-            "checklist.\n"
+            else "Synthetic demo only. Chat has no live provider; use the checklist.\n"
         )
         print(
             f"\nOpen http://127.0.0.1:{args.port}\n"

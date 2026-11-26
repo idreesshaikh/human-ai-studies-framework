@@ -1,41 +1,39 @@
-# Protocol draft
+# Review and apply the protocol
 
-The protocol draft is the study as it will run. It builds up from the cards you
-accept in the [design chat](design-conversation.md), or from the details you
-enter directly, and stays open beside the chat on **Setup**.
+Whatever route you used to fill the protocol draft, it becomes the study's
+protocol only when you review the compiled version and apply it. This page covers
+that review, what applying changes, and what to do when the protocol changes
+later.
 
-## What the draft shows
+## Review the draft
 
-The panel lists eight sections: research questions, design, participants,
-conditions, measures, instruments, statistical plan, and ethics. Ethics is
-optional, so the progress count covers the other seven. **What are these
-sections?** explains each one, and **Edit details** opens the form described
-below. The study name and the administrative fields the schema requires are in
-the study header and the raw YAML, not in the count.
+Choose **Review draft**. It is at the foot of the **Protocol draft** panel, and in
+the Setup header when the panel is hidden or the window is narrow. The dialog
+shows:
 
-At any moment the draft answers three questions:
+- how many decisions you accepted, and which ones have a linked source (marked
+  **cited**) and which do not (**no linked source**). Only sources linked to a
+  decision are counted; papers on the Literature tab are listed separately;
+- the **Compiled protocol** as YAML, marked **validated** or **not yet valid**;
+- what changed since the version you last applied, when there is an earlier
+  version;
+- the compiler's notes on anything it added or changed in your draft;
+- the errors and the sections that are **Still unresolved**, if any.
 
-1. Which decisions are in it?
-2. Which decision is missing next?
-3. Is it valid enough to apply?
+![Review draft dialog showing a compiled protocol and the Apply protocol button](../assets/screens/review-draft.webp)
 
-## Review and apply
+## Apply it
 
-**Review draft** opens the full compiled protocol before anything changes. It
-marks which decisions are backed by papers and which are your call, shows the
-YAML, and highlights what changed since the protocol you last applied.
+Choose **Keep editing** to go back, or **Apply protocol** to make this version the
+study's protocol. PHOENIX records who applied it, and the dialog then offers
+**Applied. Plan recruitment**. **Apply protocol** stays off while the protocol is
+invalid or a core section is still empty.
 
-<figure markdown="span">
-  ![Review draft dialog showing a compiled protocol and Apply protocol button](../assets/screens/review-draft-light.webp#only-light)
-  ![Review draft dialog showing a compiled protocol and Apply protocol button](../assets/screens/review-draft-dark.webp#only-dark)
-  <figcaption>Review the compiled protocol before applying it.</figcaption>
-</figure>
+Until you apply one, **Plan**, **Run** and **Data** ask you to apply the protocol
+first. That includes a study that started from a [template](templates.md): the
+template is only its starting draft, so review it here before you plan or recruit.
 
-Choose **Keep editing** to go back, or **Apply protocol** to make this version
-the study's protocol. PHOENIX records the approval, and the next step,
-**Plan recruitment**, appears.
-
-Only the applied protocol reaches participants. It sets:
+The applied protocol sets:
 
 - the conditions and the order each participant meets them in;
 - the measures and the instruments that capture them;
@@ -45,43 +43,31 @@ Only the applied protocol reaches participants. It sets:
 
 ## How compiling works
 
-- **No model involved.** The protocol compiler turns accepted decisions into a
-  versioned YAML document the same way every time.
-- **Checked.** Missing conditions, measures or participant-count rules are named
-  as errors, never filled in with defaults.
-- **Two compilers, one authority.** Your browser shows the result of each card
-  at once. The server then compiles again, and its result decides: if it finds
-  an error, **Apply protocol** stays blocked.
+- **No model is involved.** The compiler turns your accepted decisions into a
+  versioned YAML protocol the same way every time.
+- **It is checked.** Missing conditions, measures or participant counts are named
+  as errors and never filled in with defaults.
+- **The server decides.** Your browser previews each decision at once, then the
+  server compiles again. If the server finds an error, **Apply protocol** stays
+  blocked.
 
-Older saved conversations are recovered where possible. The former `taskTimer`
-name maps to TERN's capture instrument with a visible warning, and recognisable
-old statistical-plan sentences map to a runnable recipe. Anything else stays a
-warning or an error.
+## Changing the protocol later
 
-## Entering a design directly
-
-If you already have a design, skip the chat. **Enter the protocol details
-directly** on a new study, or **Edit details** on the draft, opens a form with
-the study name, up to six research questions, the design, two conditions, the
-participants, the task, the session length, and the outcomes. It starts from the
-current draft.
-
-Saving records your entry as accepted decisions that replace the earlier ones,
-and keeps the analysis recipes of research questions you did not change. The
-same compiler checks it, and **Apply protocol** approves it. The chat stays
-available, and cards accepted afterwards refine your entry.
+You can reopen **Setup** at any time, change the draft and apply it again. A new
+version governs the participant links you create afterwards. Each link keeps the
+protocol it was issued under, so a participant's sessions record what they
+consented to, and TERN does not ask for consent again. To change what an issued
+link captures, revoke it and give the participant a new link. Links created before
+StudyLoop stored this have no saved protocol and follow the current one.
 
 ## Consent and responsibility
 
 PHOENIX does not grant ethics approval. It makes the capture decision explicit:
-the participant sees the consent statement written from the protocol, and TERN
+the participant sees a consent statement written from the protocol, and TERN
 applies the protocol's capture settings. You remain responsible for review by
-your institution, and for deciding when a change to the protocol needs a new
-review. TERN applies a newly applied protocol at each participant's next
-session without asking for consent again.
+your institution and for deciding when a change needs a new review.
 
-## Templates
+## Next steps
 
-**Templates**, in the sidebar, ranks study designs by how often published
-studies in the corpus use them. Each template includes the statistical plan it
-needs.
+- [Collect the literature](library.md) behind your decisions
+- [Plan recruitment](planning.md)

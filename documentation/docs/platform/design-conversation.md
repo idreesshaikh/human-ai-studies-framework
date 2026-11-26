@@ -1,75 +1,88 @@
-# Design chat
+# Design conversation
 
-The design chat on **Setup** turns a plain description of your study into
-protocol decisions. You describe what you want to learn; it asks what must be
-true for the answer to mean something, and proposes decisions as cards you
-accept or reject. Accepted cards build the [protocol draft](protocol-draft.md).
+The design conversation is a chat on the **Setup** tab where an assistant helps
+you decide the study. It talks first: it answers your questions, lays out options
+with their trade-offs, and asks about the decisions only you can make. It proposes
+changes once you have settled those or handed them to it. Its proposals arrive as
+cards that you review, and nothing reaches the protocol until you apply it.
 
-<figure markdown="span">
-  ![Setup with the design chat and protocol draft](../assets/screens/setup-light.webp#only-light)
-  ![Setup with the design chat and protocol draft](../assets/screens/setup-dark.webp#only-dark)
-  <figcaption>Setup and the example protocol draft.</figcaption>
-</figure>
+The conversation needs a connected model; see
+[Connect a model](../reference/model-providers.md). Without one the assistant
+says that no language model is connected, and
+[templates](templates.md), [direct entry](manual-entry.md) and every later tab
+still work.
 
-The chat needs a model; see the settings in
-[Run PHOENIX yourself](index.md#your-own-server). Without one, it says that no
-language model is connected, and templates, direct entry and everything after
-Setup still work. It supports studies of coding tasks, not exams, classrooms or
-surveys.
+## How a conversation goes
 
-## Ways to start
+1. **Say what you want to learn**, or ask a question about designing the study.
+2. **Read the reply.** The assistant explains the options and what each one costs
+   you, and asks one question at a time about a choice that is yours to make,
+   such as who you can recruit or how long a session can run. The question appears
+   as a card in the thread. When it has natural answers, they appear as buttons:
+   choose one to send it, or type your own. A question that is still unanswered is
+   asked again; the assistant never decides it for you.
+3. **Review the cards** it proposes once you have settled those choices, or say
+   "draft it" to let the assistant fill in the rest.
+4. **Keep talking** until the draft covers the study, then
+   [review and apply it](protocol-draft.md).
 
-- **Describe your question** in the chat box: the behaviour, the people, the
-  task, and the comparison you care about.
-- **Start from details or an example** to add known details, choose an example,
-  or enter the protocol directly. See [Entering a design directly](protocol-draft.md#entering-a-design-directly).
+## Proposal cards
 
-## Cards
+Each card changes one part of the study plan:
 
-Replies can include cards for you to review. A card can propose:
+- design and conditions
+- participants
+- task and session length
+- outcome measures
+- research questions
+- title
 
-- **A protocol change**, such as a within-subjects design, a measure, a
-  condition, or a rule for how many participants to recruit.
-- **An analysis recipe** that the analysis code can run, such as
-  `paired-nonparametric`. A paragraph of advice is not an analysis plan.
-- **A caution** about a risk in the design. **Note it** records that you saw it.
+A card lists the proposed value of each field it changes and, under **Now**, the
+accepted value it would replace, so you can see exactly what accepting it changes.
+You **Accept** or **Reject** each card, or press ++a++, ++r++ or ++u++ (undo) on a
+focused card, and these rules apply:
 
-Accepted cards go into the draft; rejected cards leave nothing behind. **Undo**
-reverses a decision. The chat uses recent messages and accepted decisions as
-context.
+- **Accepted parts stay accepted.** The assistant does not propose them again
+  unless you ask to change them.
+- **A newer proposal replaces an older pending one** for the same part, so a part
+  never has two competing cards.
+- **Up to two decisions appear under the latest reply.** As you accept or
+  reject them, the next decisions appear. When both visible cards reflect
+  details you supplied, **Accept both** records those two together.
+- **Values the assistant chose itself are marked** on the card under **Chosen by
+  the assistant**, with its reason, so you can see which choices were not yours
+  before you accept them. Each of those cards waits for its own decision.
 
-## Where a card's evidence comes from
+Open **Assistant style** beside the message box and choose **Answers only**
+when you want advice without cards.
+The assistant then answers and flags risks and never changes the draft.
 
-Each card shows its basis:
+## Literature on the cards
 
-| Label | Meaning |
-| --- | --- |
-| **grounded** | Backed by papers in the corpus. Hover for the title, venue, confidence and the reason it applies |
-| **Evidence and conditions** | Backed by an evidence map you imported, with its version |
-| **No source: your call** | The proposal has no cited source. Assess it using your own judgement |
+Literature retrieved for a turn appears in the **Literature** view of the panel
+beside the chat. When the local library has little on your topic, the turn also
+searches Semantic Scholar for at most 2.5 seconds and adds what it finds to the
+library. If Semantic Scholar is slow or unavailable, the turn goes ahead with the
+local results. The search sends up to eight keywords taken from your messages,
+not the messages themselves. Set `MIDDLEWARE_LIVE_SEARCH=0` to turn it off; see
+[Configuration](../reference/configuration.md#server-settings).
 
-Review cited papers and their relevance before relying on a proposal.
+A card cites a paper only when that paper was retrieved for the same turn, so
+every citation can be found in the panel. A card with no citation has no paper
+behind it; judge it on its reasoning. Add a paper to your study from the panel, or
+from the [Literature tab](library.md).
 
-## Assistant style
+## Nothing is applied until you apply it
 
-The **Assistant style** control sets how the chat behaves from the next reply
-on. It never changes decisions you already accepted.
+Accepted cards update the **Protocol draft** panel, which is a compiled draft and
+not yet the study's protocol. Choose **Review draft** to read the compiled
+protocol and its changes, then **Apply protocol**. See
+[Review and apply the protocol](protocol-draft.md).
 
-- **Drafts the plan** (the default) turns what you say into cards.
-- **Answers only** answers questions and flags risks, and never changes the
-  draft.
+The assistant does not replace your ethics review, preregistration or final
+analysis, and it never presents synthetic data as a result.
 
-## More tools
+## Next steps
 
-- The panel on the right switches between **Protocol draft** and
-  **Literature**. It lists papers matched to the chat; **Add to study** adds one
-  to [Literature](library.md).
-- **Research tools** (**⋯**) opens **Compare methods**, where you can import an
-  evidence map, compare methods and send a choice back to the chat for review.
-  It also offers **Enter protocol manually**.
-
-## What the chat will not do
-
-- Change a decision you accepted without your say.
-- Present synthetic or demo data as a result.
-- Replace your ethics review, preregistration or final analysis.
+- [Review and apply the protocol](protocol-draft.md)
+- [Literature](library.md) to collect the papers behind your decisions

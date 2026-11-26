@@ -11,7 +11,7 @@ surfaces are out of scope.
 ## Supported work
 
 - Configure questions, tasks, conditions, participants, measures, and an analysis
-  plan from templates or a model-assisted conversation.
+  plan from templates, a model-assisted conversation, or a details form.
 - Compile reviewed decisions into validated YAML.
 - Derive assignment, consent, and instrumentation for TERN in VS Code.
 - Collect study-scoped events and optional code or provider measurements.
