@@ -665,24 +665,36 @@ def test_an_explicitly_chosen_slug_still_reports_a_collision(client):
 
 
 def _study_with_protocol(client, slug: str, owner: str, name: str) -> str:
-    """A study in ``slug`` that has a minimal protocol, so `/status` will answer."""
+    """A study in ``slug`` with a minimal applied protocol, so `/status` will
+    answer. The protocol is recorded as applied directly: this test is about
+    which sessions a study sees, not about designing one."""
+    import yaml
+    from middleware.db import ProtocolDraftRow, make_session_factory
+
     res = client.post(
-        f"/projects/{slug}/studies",
-        json={
-            "name": name,
-            "protocol": {
-                "protocolVersion": 4,
-                "study": {"id": name.lower(), "title": name},
-                "researchQuestions": [{"id": "RQ-1", "text": "A question?"}],
-                "conditions": ["ai-assisted"],
-                "participants": {"planned": 2, "design": "within-subjects"},
-                "phases": [{"name": "design", "gates": []}],
-            },
-        },
-        headers=bearer(owner),
+        f"/projects/{slug}/studies", json={"name": name}, headers=bearer(owner)
     )
     assert res.status_code == 200, res.text
-    return res.json()["id"]
+    study_id = res.json()["id"]
+    protocol = {
+        "protocolVersion": 4,
+        "study": {"id": study_id, "title": name},
+        "researchQuestions": [{"id": "RQ-1", "text": "A question?"}],
+        "conditions": ["ai-assisted"],
+        "participants": {"planned": 2, "design": "within-subjects"},
+        "phases": [{"name": "design", "gates": []}],
+    }
+    with make_session_factory(f"sqlite:///{client.db_path}")() as s:
+        s.add(
+            ProtocolDraftRow(
+                study_id=study_id,
+                yaml=yaml.safe_dump(protocol, sort_keys=False),
+                compilation_id="",
+                updated_at="",
+            )
+        )
+        s.commit()
+    return study_id
 
 
 def test_status_only_reports_this_study_s_sessions(client):

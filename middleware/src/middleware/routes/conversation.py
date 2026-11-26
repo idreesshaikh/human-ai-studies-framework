@@ -15,7 +15,7 @@ from fastapi.responses import (
     StreamingResponse,
 )
 from protocol.measure_catalog import suggest_measures
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -43,6 +43,7 @@ from middleware.db import (
 from middleware.evidence_mapping import evidence_export
 from middleware.route_helpers import (
     _sse,
+    draft_base_yaml,
 )
 from middleware.routes.deps import ApiDeps
 from middleware.schemas import (
@@ -244,6 +245,17 @@ def register(app: FastAPI, deps: ApiDeps):
             "platformTurnId": platform.id,
             "text": platform.text,
             "moves": moves,
+            "supersededMoveIds": list(
+                s.scalars(
+                    select(DesignMoveRow.id)
+                    .where(
+                        DesignMoveRow.study_id == study_id,
+                        DesignMoveRow.status == "superseded",
+                    )
+                    .order_by(DesignMoveRow.id)
+                )
+            ),
+            "questions": platform.questions or [],
             "recommendations": platform.recommendations or [],
             "source": platform.source,
             "understanding": elicitation.understanding_summary(
@@ -393,10 +405,33 @@ def register(app: FastAPI, deps: ApiDeps):
             text=reply["text"],
             retrieved_refs=sorted(retrieved),
             recommendations=reply["recommendations"],
+            questions=reply.get("questions") or [],
             created_at=deps.now(),
             source=reply["source"],
         )
         s.add(platform)
+        # A newer proposal for a part of the plan replaces the undecided one.
+        parts = {
+            (m["patch"] or {}).get("part")
+            for m in reply["moves"]
+            if m["kind"] == study_plan.PLAN_KIND
+        } | set(reply.get("withdrawn") or [])
+        superseded = []
+        if parts:
+            for row in s.scalars(
+                select(DesignMoveRow)
+                .where(
+                    DesignMoveRow.study_id == study_id,
+                    DesignMoveRow.kind == study_plan.PLAN_KIND,
+                    DesignMoveRow.status == "proposed",
+                )
+                .with_for_update()
+            ):
+                if (row.patch or {}).get("part") in parts:
+                    row.status = "superseded"
+                    row.decided_by = "Platform"
+                    row.decided_at = deps.now()
+                    superseded.append(row.id)
         for i, m in enumerate(reply["moves"]):
             s.add(
                 DesignMoveRow(
@@ -434,6 +469,8 @@ def register(app: FastAPI, deps: ApiDeps):
                 }
                 for m in reply["moves"]
             ],
+            "supersededMoveIds": sorted(superseded),
+            "questions": reply.get("questions") or [],
             "recommendations": reply["recommendations"],
             "source": reply["source"],
             "understanding": reply["understanding"],
@@ -568,6 +605,7 @@ def register(app: FastAPI, deps: ApiDeps):
                     "text": "" if t.redacted else t.text,
                     "redacted": bool(t.redacted),
                     "moves": moves_by_turn.get(t.id, []),
+                    "questions": t.questions or [],
                     "recommendations": current_recommendations(t.recommendations),
                     "source": t.source,
                 }
@@ -598,21 +636,33 @@ def register(app: FastAPI, deps: ApiDeps):
             raise HTTPException(
                 400, "status must be 'accepted', 'rejected', or 'proposed'"
             )
-        mv = s.get(DesignMoveRow, move_id)
-        if mv is None or mv.study_id != study_id:
-            raise HTTPException(404, "design move not found")
-        mv.status = body.status
-        if body.status == "proposed":
-            mv.decided_by = ""
-            mv.decided_at = ""
-        else:
-            mv.decided_by = body.decidedBy
-            mv.decided_at = deps.now()
+        reopening = body.status == "proposed"
+        decision = s.execute(
+            update(DesignMoveRow)
+            .where(
+                DesignMoveRow.id == move_id,
+                DesignMoveRow.study_id == study_id,
+                DesignMoveRow.status != "superseded",
+            )
+            .values(
+                status=body.status,
+                decided_by="" if reopening else body.decidedBy,
+                decided_at="" if reopening else deps.now(),
+            )
+            .returning(DesignMoveRow.grounding)
+        ).one_or_none()
+        if decision is None:
+            mv = s.get(DesignMoveRow, move_id)
+            if mv is None or mv.study_id != study_id:
+                raise HTTPException(404, "design move not found")
+            raise HTTPException(
+                409, "A newer proposal replaced this one. Decide on that one instead."
+            )
 
         # Accepted citations must also appear in the study-scoped library.
         adopted: list[str] = []
         if body.status == "accepted":
-            for g in mv.grounding or []:
+            for g in decision.grounding or []:
                 ref = g.get("ref") if isinstance(g, dict) else None
                 if not ref:
                     continue
@@ -626,7 +676,7 @@ def register(app: FastAPI, deps: ApiDeps):
                 if got is not None:
                     adopted.append(got)
         s.commit()
-        return {"moveId": move_id, "status": mv.status, "papersAdded": adopted}
+        return {"moveId": move_id, "status": body.status, "papersAdded": adopted}
 
     @app.post(
         "/studies/{study_id}/quick-protocol",
@@ -636,11 +686,14 @@ def register(app: FastAPI, deps: ApiDeps):
         study_id: str, body: QuickProtocolIn, s: Session = Depends(deps.db)
     ) -> dict:
         """Validate a bounded developer-study checklist and compile it in one pass."""
-        existing = s.get(ProtocolDraftRow, study_id)
-        base_yaml = existing.yaml if existing else ""
-        current = compiler.compile_moves(
-            deps.conversation_moves(s, study_id), base_yaml=base_yaml
-        ).draft
+        base_yaml = draft_base_yaml(s, study_id)
+        previous_moves = deps.conversation_moves(s, study_id)
+        revising_manual_entry = any(
+            move.get("status") == "accepted"
+            and (move.get("patch") or {}).get("manual") is True
+            for move in previous_moves
+        )
+        current = compiler.compile_moves(previous_moves, base_yaml=base_yaml).draft
         try:
             move_specs = study_plan.plan_moves(study_id, body, current)
         except study_plan.PlanError as err:
@@ -654,7 +707,11 @@ def register(app: FastAPI, deps: ApiDeps):
             seq=deps.conversation_seq(s, study_id),
             role="researcher",
             author="Researcher",
-            text=(f"Protocol details entered manually: {questions[0]}"),
+            text=(
+                f"Updated the manual protocol: {questions[0]}"
+                if revising_manual_entry
+                else f"Protocol details entered manually: {questions[0]}"
+            ),
             retrieved_refs=[],
             created_at=deps.now(),
         )
@@ -678,6 +735,18 @@ def register(app: FastAPI, deps: ApiDeps):
         )
         s.add(platform)
         s.flush()
+        # The checklist restates the whole plan, so an undecided plan card from
+        # before it could no longer take effect; close it rather than leave it
+        # open to an acceptance that changes nothing.
+        s.execute(
+            update(DesignMoveRow)
+            .where(
+                DesignMoveRow.study_id == study_id,
+                DesignMoveRow.kind == study_plan.PLAN_KIND,
+                DesignMoveRow.status == "proposed",
+            )
+            .values(status="superseded", decided_by="Platform", decided_at=deps.now())
+        )
         moves = []
         for index, spec in enumerate(move_specs, start=1):
             move_id = f"{platform.id}:quick-{index}"
@@ -722,7 +791,11 @@ def register(app: FastAPI, deps: ApiDeps):
         )
         s.add(comp)
         platform.text = (
-            "The checklist is complete and the compiler "
+            (
+                "The manual draft is updated and the compiler "
+                if revising_manual_entry
+                else "The checklist is complete and the compiler "
+            )
             + ("verified the draft." if result.valid else "found issues to resolve.")
             + " Review the result before applying it."
         )
@@ -752,8 +825,7 @@ def register(app: FastAPI, deps: ApiDeps):
         moves = deps.conversation_moves(s, study_id)
         base_yaml = body.baseYaml
         if base_yaml is None:
-            existing = s.get(ProtocolDraftRow, study_id)
-            base_yaml = existing.yaml if existing else ""
+            base_yaml = draft_base_yaml(s, study_id)
         result = compiler.compile_moves(moves, base_yaml=base_yaml)
         comp = Compilation(
             id=secrets.token_hex(8),
@@ -804,8 +876,7 @@ def register(app: FastAPI, deps: ApiDeps):
                 f"Resolve: {comp.errors or comp.unresolved}",
             )
 
-        current_draft = s.get(ProtocolDraftRow, study_id)
-        base_yaml = current_draft.yaml if current_draft else ""
+        base_yaml = draft_base_yaml(s, study_id)
         if sha256(base_yaml.encode()).hexdigest() != comp.base_sha256:
             raise HTTPException(
                 409,

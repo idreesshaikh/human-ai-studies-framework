@@ -42,6 +42,11 @@ menu:
 | **Open data folder** | Opens the folder with the event file. Unpaired sessions only |
 | **End study session** | Ends early and moves to the closing questions |
 
+The **Session** view in the **StudyLoop study** sidebar offers **Pause session**
+(or **Resume session**) and **End session** while a session runs. If the study
+declares tasks, it also shows the current task as "Task 1 of 2", with its
+description and materials.
+
 While a session runs, TERN handles **Copy**, **Cut** and **Paste**, and **Tab**
 and **Esc** on inline suggestions. Each still does what it normally does; TERN
 notes the size of what was pasted or accepted.
@@ -93,3 +98,8 @@ the closing questions.
   before the crash can also be counted as break time.
 - If you choose not to recover, the event file is kept as it is, without a
   `session_end` event.
+
+## Next steps
+
+- [Captured data](captured-data.md) lists every event a session writes
+- [Privacy](privacy.md) says what is never recorded and how to delete your data

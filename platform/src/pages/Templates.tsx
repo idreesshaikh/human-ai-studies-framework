@@ -81,7 +81,9 @@ export function Templates() {
       const study = await api.createStudy(slug, title, protocol);
       rememberStudyName(browserNameStore(), study.id, title);
       await refresh().catch(() => {});
-      navigate(`/studies/${encodeURIComponent(study.id)}?tab=planning`);
+      // The template is a draft to review and apply in Setup, not yet the
+      // study's protocol.
+      navigate(`/studies/${encodeURIComponent(study.id)}?tab=setup`);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Could not start this study.");
     } finally {

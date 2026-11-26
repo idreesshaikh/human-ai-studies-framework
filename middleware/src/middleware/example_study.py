@@ -34,7 +34,7 @@ from middleware.settings import Settings
 EXAMPLE_STUDY_ID = "example-copilot-and-bug-fixing-synthetic-data"
 EXAMPLE_TITLE = "Example: Copilot and bug fixing (synthetic data)"
 TEMPLATE_ID = "within-subjects-crossover-v2"
-CONDITIONS = ["without-ai", "with-copilot"]
+CONDITIONS = ["without AI", "with Copilot"]
 CONTROL, TREATMENT = CONDITIONS
 
 SEED = 20261110
@@ -82,6 +82,9 @@ def example_protocol() -> dict:
     )["protocol"]
     renamed = dict(zip(protocol["conditions"], CONDITIONS, strict=True))
     protocol["conditions"] = list(CONDITIONS)
+    protocol["participants"]["description"] = (
+        "Simulated professional developers (synthetic example)"
+    )
     protocol["controlConditions"] = [
         renamed[c] for c in protocol.get("controlConditions", [])
     ]
@@ -94,6 +97,90 @@ def example_protocol() -> dict:
     if errors:
         raise RuntimeError("example protocol is invalid: " + "; ".join(errors))
     return protocol
+
+
+def _example_conversation(created_at: str) -> list:
+    """A short design conversation for the example: the assistant asks before
+    it proposes, and its latest turn waits on one revision card."""
+    from middleware.db import ConversationTurn, DesignMoveRow
+
+    said = [
+        (
+            "researcher",
+            "I want to know whether GitHub Copilot changes how quickly developers "
+            "fix bugs, and whether it changes how hard the work feels.",
+            [],
+        ),
+        (
+            "platform",
+            "That fits a crossover: each developer fixes one bug without AI and "
+            "one with Copilot, so you compare people with themselves and need "
+            "fewer of them. Two choices shape the rest.",
+            [
+                {
+                    "ask": "Who can you recruit?",
+                    "options": ["Professional developers", "CS students", "Both"],
+                },
+                {
+                    "ask": "What should participants work on?",
+                    "options": ["Seeded bugs in code you control", "Real issues"],
+                },
+            ],
+        ),
+        (
+            "researcher",
+            "Professional developers, and seeded bugs in a small service. Could we "
+            "run 30 people instead of 24, in case some sessions fail?",
+            [],
+        ),
+        (
+            "platform",
+            "Yes. Thirty leaves room for a few lost sessions without weakening the "
+            "comparison, as long as you keep the number in each condition order "
+            "even. The Plan tab shows what the change does to the precision you "
+            "can expect.",
+            [],
+        ),
+    ]
+    rows: list = []
+    for seq, (role, text, questions) in enumerate(said, start=1):
+        rows.append(
+            ConversationTurn(
+                id=f"example-turn-{seq}",
+                study_id=EXAMPLE_STUDY_ID,
+                seq=seq,
+                role=role,
+                author="Example researcher" if role == "researcher" else "Platform",
+                text=text,
+                retrieved_refs=[],
+                recommendations=[],
+                questions=questions,
+                created_at=created_at,
+                source="llm" if role == "platform" else "",
+            )
+        )
+    rows.append(
+        DesignMoveRow(
+            id="example-turn-4:t4-m1",
+            study_id=EXAMPLE_STUDY_ID,
+            turn_id="example-turn-4",
+            seq=1,
+            kind="set-plan",
+            target="plan.participants",
+            proposal="Number of participants: 30 participants "
+            f"(was {PLANNED_PARTICIPANTS} participants).",
+            patch={
+                "part": "participants",
+                "plan": {"plannedParticipants": 30},
+                "before": {"plannedParticipants": PLANNED_PARTICIPANTS},
+                "suggested": [],
+                "studyId": EXAMPLE_STUDY_ID,
+            },
+            grounding=[],
+            status="proposed",
+        )
+    )
+    return rows
 
 
 @contextmanager
@@ -404,7 +491,11 @@ def seed_example(settings: Settings | None = None) -> dict:
     protocol = example_protocol()
     clock = _Clock()
     with factory() as s:
-        s.add(Study(id=EXAMPLE_STUDY_ID, project_id=IMPLICIT_PROJECT_ID))
+        s.add(
+            Study(
+                id=EXAMPLE_STUDY_ID, project_id=IMPLICIT_PROJECT_ID, name=EXAMPLE_TITLE
+            )
+        )
         s.add(
             ProtocolDraftRow(
                 study_id=EXAMPLE_STUDY_ID,
@@ -415,6 +506,7 @@ def seed_example(settings: Settings | None = None) -> dict:
                 updated_at=_iso(clock()),
             )
         )
+        s.add_all(_example_conversation(_iso(clock())))
         s.commit()
 
     # Local single-user access: the seed is an operator command with the database

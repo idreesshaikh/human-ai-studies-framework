@@ -237,8 +237,11 @@ def test_proposal_approval_and_exports_retain_sources(
     compiled = client.post("/studies/pilot/conversation/compile", json={}).json()
     assert compiled["valid"], compiled
     assert compiled["protocol"]["participants"]["design"] == "between-subjects"
+    # The evidence-chosen recipe, then the marker that typed measures carry
+    # their own per-measure analyses.
     assert compiled["protocol"]["analysisPlan"][0]["recipes"] == [
-        "two-group-nonparametric"
+        "two-group-nonparametric",
+        "typed-measures",
     ]
     assert (
         client.post(

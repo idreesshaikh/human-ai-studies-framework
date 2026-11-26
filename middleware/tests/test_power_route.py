@@ -9,6 +9,7 @@ from middleware.app import create_app
 from middleware.auth import Identity
 from middleware.settings import Settings
 from pytest import fixture
+from study_helpers import apply_draft
 
 FROZEN_NOW = datetime(2026, 8, 19, 10, 0, tzinfo=UTC)
 
@@ -147,8 +148,7 @@ def test_power_route_refuses_protocols_that_are_not_two_arm(client):
             headers=bearer("alice"),
         )
         assert study.status_code == 200, study.text
-        r = client.get(
-            f"/studies/{study.json()['id']}/power", headers=bearer("alice")
-        )
+        apply_draft(client, study.json()["id"], bearer("alice"))
+        r = client.get(f"/studies/{study.json()['id']}/power", headers=bearer("alice"))
         assert r.status_code == 422, (template_id, r.text)
         assert "exactly two declared conditions" in r.json()["detail"]

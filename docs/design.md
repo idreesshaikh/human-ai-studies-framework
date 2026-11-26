@@ -74,6 +74,12 @@ One spec (`.control`, tokens.css/index.css); checked by frontend lint and browse
 - Field (`ui/field.tsx`): label at control size, 6px gap, hint or error below,
   20px between fields; wires id, aria-describedby, aria-invalid. Placeholders
   are short examples; guidance goes in the hint. `autoGrow` textareas have no grip.
+- Popups and segmented controls: use the wrappers in `ui/`. Dialogs, menus and
+  selects use ui-sdk; segmented controls use the shared radio-group wrapper. A one-off
+  popup (the citation card, the capture toggle) uses ui-sdk parts directly with
+  the shared `popup-panel` class. A select is a listbox (options, typeahead),
+  not a menu. Menus, selects, popovers and dialogs use a short fade;
+  reduced motion removes it.
 - Dialog: `DialogHeader`, one scrolling `DialogBody`, sticky `DialogFooter`
   (secondary left of primary), capped in dvh, shade only when scrollable, full
   sheet on phones. Footer submit uses `form="id"`. Validation: role=alert

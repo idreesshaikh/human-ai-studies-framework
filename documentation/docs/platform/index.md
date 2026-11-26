@@ -1,86 +1,52 @@
-# PHOENIX
+# The Setup tab
 
-PHOENIX is the web app where researchers design a study, connect participants,
-and read what TERN recorded. The app itself is titled **StudyLoop**.
+The **Setup** tab is where you design a study and where it becomes a protocol.
+You describe the study, pick a template or enter the details, and PHOENIX fills in
+the protocol draft beside the chat. Nothing reaches a participant until you review
+the compiled draft and apply it.
 
-## A study, tab by tab
+![Setup with the chat on the left and the protocol draft on the right](../assets/screens/setup.webp)
 
-Each study opens on five tabs, in the order you usually need them.
+## Three ways to fill the draft
 
-| Tab | What you do there | Guide |
+You can use them in any order, and each one adds to the same draft.
+
+| Route | Use it when | Needs a model |
 | --- | --- | --- |
-| **Setup** | Describe the study in the design chat, or enter it directly, then review and apply the protocol | [Design chat](design-conversation.md), [Protocol draft](protocol-draft.md) |
-| **Literature** | Collect the papers behind the study and link them to the protocol | [Literature](library.md) |
-| **Plan** | Estimate how many participants the analysis needs | [Plan](planning.md) |
-| **Run** | Create participant links and watch sessions as they run | [Participant links](participants.md) |
-| **Data** | Check captured sessions, record inclusion decisions, and download the records | [Data](data.md) |
+| [Design conversation](design-conversation.md) | You want to talk through options and trade-offs before deciding | Yes |
+| [Templates](templates.md) | A standard design fits and you want its analysis plan | No |
+| [Enter the protocol details directly](manual-entry.md) | You already know the design | No |
 
-**Export** in the study header offers the data bundle, design card, replication
-kit, elicitation record and starter notebook. The Data tab also offers the first
-three downloads.
-The **?** button next to it opens a short tour of the workspace.
+StudyLoop supports studies of coding tasks. It is not for exams, classrooms or
+surveys.
 
-## How PHOENIX and TERN connect
+## The protocol draft
 
-The applied protocol is the only thing that configures a participant's session.
+The panel beside the chat, labelled **Protocol draft**, is the study's working
+memory. It lists the sections of a protocol and what each one holds so far:
 
-```text
-Protocol in PHOENIX
-   │  consent statement, capture settings, assigned condition
-   ▼
-TERN in VS Code ── writes a local file first ──► study server ──► Data tab
-```
+- research questions, design, participants, conditions, measures, instruments and
+  statistical plan, which together make up the count of drafted sections
+  ("3 of 7 drafted");
+- **Ethics posture**, which is optional and records your safeguards. PHOENIX does
+  not approve ethics.
 
-[Participant links](participants.md) covers the hand-off and
-[TERN's captured data](../extension/captured-data.md) covers every event.
+The panel names the next undrafted section, and choosing it puts a prompt in the
+chat box for you to edit and send. The **?** button, **What are these sections?**,
+explains each section. The panel's second view, **Literature**, shows the papers
+matched to the conversation. **Hide protocol draft** folds the panel into a strip.
 
-## Run PHOENIX yourself
+**Edit details** opens the [details form](manual-entry.md) on top of the current
+draft, and **Review draft** opens the compiled protocol for
+[review and apply](protocol-draft.md).
 
-Install Git, Node.js 22.13+ or a newer LTS release, and
-[uv](https://docs.astral.sh/uv/getting-started/installation/). uv can install
-Python 3.12 for you.
+## Then
 
-### The example study
+1. Collect the papers behind the design on the [Literature](library.md) tab.
+2. [Review and apply the protocol](protocol-draft.md).
+3. Move on to [Plan](planning.md).
 
-The example runs on temporary storage and needs no API key.
+## Next steps
 
-```bash
-git clone https://github.com/idreesshaikh/human-ai-studies-framework.git
-cd human-ai-studies-framework
-uv sync --package middleware --no-dev --frozen
-npm --prefix platform ci
-npm --prefix platform run build
-uv run --no-sync python scripts/run_demo.py
-```
-
-Open <http://127.0.0.1:8000>. ++ctrl+c++ stops the server and deletes its data.
-Use `--port` to pick another port. The design chat is off in this mode; to try
-it with your model provider and the paper corpus, add `--live` and pass your
-settings file:
-
-```bash
-uv run --no-sync --env-file .env.local python scripts/run_demo.py --live
-```
-
-`--live` sends requests to your model provider, which may cost money.
-
-### Your own server
-
-Stop the demo. Copy the sample settings once, then start the regular server.
-
-```bash
-cp .env.example .env.local
-uv run --no-sync --env-file .env.local python -m middleware
-```
-
-In PowerShell, use `Copy-Item .env.example .env.local` to copy the file. Open
-<http://127.0.0.1:8000>. The sample binds to loopback and keeps studies in
-`.study-data/`. On first start, StudyLoop imports the bundled paper corpus in
-the background. Literature suggestions appear once
-<http://127.0.0.1:8000/corpus/status> reports `"ready"`.
-
-Configure Mistral, Ollama, or another compatible provider in `.env.local` to
-enable the design conversation. Templates and manual setup work without a
-model. Pass the settings file with `--env-file` whenever you start the server.
-[Connect a model](https://github.com/idreesshaikh/human-ai-studies-framework#connect-a-model) ·
-[Server configuration](https://github.com/idreesshaikh/human-ai-studies-framework/blob/main/middleware/README.md)
+- [Design conversation](design-conversation.md) if a model is connected
+- [Templates](templates.md) or [Enter the protocol details directly](manual-entry.md) if not

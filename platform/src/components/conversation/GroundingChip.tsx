@@ -1,96 +1,42 @@
-import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useRef } from "react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@ui-sdk/react/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Confidence } from "./Confidence";
 import type { Grounding } from "@/lib/types";
 import { publicPaperReference } from "@/lib/paperReference";
 
 /* A citation chip: the paper title (quality shown as a confidence meter in the
- * hover card). Hover (or click/focus for keyboard and touch) reveals title,
- * year, venue, confidence, and why it's cited. */
+ * card). Hover, focus or a press (touch) reveals title, year, venue, confidence,
+ * and why it's cited. ui-sdk's tooltip keeps the card hoverable and dismissible
+ * with Escape (WCAG 2.2 SC 1.4.13) and renders it in the top layer, so the
+ * conversation's scroller cannot clip it. */
 export function GroundingChip({ g }: { g: Grounding }) {
-  const [open, setOpen] = useState(false);
-  const cardId = useId();
-  const anchor = useRef<HTMLSpanElement>(null);
-  const card = useRef<HTMLDivElement>(null);
-  const [placement, setPlacement] = useState({ left: 0, top: 0 });
+  const trigger = useRef<HTMLButtonElement>(null);
   const citation = publicPaperReference(g.ref);
-
-  /* The card renders into <body> and is placed from the chip's own box. As an
-   * absolutely-positioned sibling it was clipped by the conversation's
-   * scroller  -  a citation opened near the foot of the thread was sheared
-   * mid-ref against the scroller's edge  -  and position:fixed does not escape
-   * it either, because the move card itself establishes a containing block.
-   * Out in the body it can also flip above the chip when there is no room
-   * below. Hover still works across the gap: React routes mouseenter/leave
-   * through its own tree, so the portal counts as inside this wrapper. */
-  const place = useCallback(() => {
-    const a = anchor.current;
-    const c = card.current;
-    if (!a || !c) return;
-    const box = a.getBoundingClientRect();
-    const size = c.getBoundingClientRect();
-    const gutter = 8;
-    /* Clear of the whole move card, not just the chip: the card's own
-     * Accept / Reject row sits right under its citations, and a card opened
-     * beside the chip used to cover it. Above the card when it fits, else
-     * below it. */
-    const frame = (a.closest("[data-move-id]") ?? a).getBoundingClientRect();
-    const above = frame.top - size.height - gutter;
-    const below = frame.bottom + gutter;
-    const fitsBelow = below + size.height <= window.innerHeight - gutter;
-    setPlacement({
-      left: Math.max(
-        gutter,
-        Math.min(box.left, window.innerWidth - size.width - gutter),
-      ),
-      top: above >= gutter ? above : fitsBelow ? below : gutter,
-    });
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!open) return;
-    place();
-    // The thread scrolls under an open card; follow the chip rather than
-    // leaving the citation stranded where it was opened.
-    window.addEventListener("scroll", place, true);
-    window.addEventListener("resize", place);
-    return () => {
-      window.removeEventListener("scroll", place, true);
-      window.removeEventListener("resize", place);
-    };
-  }, [open, place]);
+  /* Placed clear of the whole move card, not just the chip: the card's own
+   * Accept / Reject row sits right under its citations, and a card opened
+   * beside the chip used to cover it. Horizontally it follows the chip;
+   * vertically the move card. Read on every position check, so it follows the
+   * thread as it scrolls. */
+  const anchor = useMemo(
+    () => ({
+      getBoundingClientRect: () => {
+        const chip = trigger.current;
+        if (!chip) return new DOMRect();
+        const box = chip.getBoundingClientRect();
+        const frame = (chip.closest("[data-move-id]") ?? chip).getBoundingClientRect();
+        return new DOMRect(box.left, frame.top, box.width, frame.height);
+      },
+    }),
+    [],
+  );
 
   return (
-    /* Hover state lives on the wrapper, not the button: WCAG 2.2 SC 1.4.13
-     * requires the revealed content to be hoverable, and closing on the
-     * button's own mouseleave made the gap between chip and card uncrossable,
-     * so a pointer user could never reach the full title the chip clamps. */
-    <span
-      ref={anchor}
-      className="relative inline-block max-w-full"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onKeyDown={(e) => {
-        // Dismissible without moving the pointer or the focus (same SC).
-        if (e.key === "Escape" && open) {
-          e.stopPropagation();
-          setOpen(false);
-        }
-      }}
-    >
-      <button
-        type="button"
+    <Tooltip toggleable delay={120} type="description">
+      <TooltipTrigger
+        ref={trigger}
         className="cursor-help min-h-9 max-w-full"
         aria-label={`Cited paper: ${g.title}`}
-        aria-expanded={open}
-        aria-describedby={open ? cardId : undefined}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
-        onClick={(event) => {
-          event.stopPropagation();
-          setOpen(true);
-        }}
       >
         {/* The chip names the paper and nothing more. Its score is a corpus
           * quality prior (recency, citations, venue; every seed paper gets the
@@ -119,40 +65,44 @@ export function GroundingChip({ g }: { g: Grounding }) {
             )}
           </span>
         </Badge>
-      </button>
-      {open &&
-        createPortal(
-          <div
-            ref={card}
-            id={cardId}
-            role="tooltip"
-            style={{ left: `${placement.left}px`, top: `${placement.top}px` }}
-            className="fixed z-50 block w-72 max-w-[calc(100vw-2rem)] rounded-input border border-border-strong bg-surface-raised p-3 shadow-lifted"
-          >
-            <span className="type-label block text-text">
-              {g.title}
-              {g.year ? ` (${g.year})` : ""}
-            </span>
-            {g.venue && (
-              <span className="type-caption block text-text-muted">{g.venue}</span>
-            )}
-            <span className="mt-1.5 flex items-center gap-2">
-              <span className="type-legend text-text-muted">Source quality</span>
-              <Confidence value={g.confidence} words={false} />
-            </span>
-            <span className="type-caption block text-text-muted">
-              From recency, citations and venue. It does not measure how well
-              this paper supports the card.
-            </span>
-            <span className="type-body mt-1 block text-text">{g.why}</span>
-            {citation && (
-              <span className="type-quantity identifier mt-1 block break-all text-text-muted">
-                {citation}
-              </span>
-            )}
-          </div>,
-          document.body,
+      </TooltipTrigger>
+      <TooltipContent
+        anchor={anchor}
+        side="top"
+        align="start"
+        sideOffset={8}
+        collisionPadding={8}
+        className="citation-tooltip popup-panel block w-72 rounded-input border-border-strong p-3"
+      >
+        <span className="type-label block text-text">
+          {g.title}
+          {g.year ? ` (${g.year})` : ""}
+        </span>
+        {g.venue && (
+          <span className="type-caption block text-text-muted">{g.venue}</span>
         )}
-    </span>
+        <span className="mt-1.5 flex items-center gap-2">
+          <span className="type-legend text-text-muted">Source quality</span>
+          <Confidence value={g.confidence} words={false} />
+        </span>
+        <span className="type-caption block text-text-muted">
+          From recency, citations and venue. It does not measure how well
+          this paper supports the card.
+        </span>
+        {g.why && (
+          <span className="mt-2 block">
+            <span className="type-legend block text-text-muted">Paper focus</span>
+            <span className="type-body mt-1 line-clamp-4 block text-text [overflow-wrap:anywhere]">
+              {g.why}
+            </span>
+          </span>
+        )}
+        {citation && (
+          <span className="type-quantity identifier mt-1 block break-all text-text-muted">
+            {citation}
+          </span>
+        )}
+      </TooltipContent>
+    </Tooltip>
   );
 }

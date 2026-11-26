@@ -112,6 +112,7 @@ def register(app: FastAPI, deps: ApiDeps):
                 condition=condition,
                 grain=body.grain,
                 capture_overrides=enrollment.clean_capture_overrides(body.overrides),
+                protocol_snapshot=protocol,
                 token=token,
                 expires_at=expires,
                 created_at=deps.now(),
@@ -176,10 +177,11 @@ def register(app: FastAPI, deps: ApiDeps):
             else:
                 status = "unredeemed"
             capture_config = None
-            if protocol is not None:
+            issued = r.protocol_snapshot or protocol
+            if issued is not None:
                 try:
                     cfg = enrollment.build_capture_config(
-                        protocol,
+                        issued,
                         r.participant_id,
                         r.condition,
                         study_id=study_id,
@@ -375,7 +377,7 @@ def register(app: FastAPI, deps: ApiDeps):
             raise HTTPException(
                 410, "this single-use connection link has already been used"
             )
-        protocol = deps.resolve_study_protocol(s, row.study_id)
+        protocol = row.protocol_snapshot or deps.resolve_study_protocol(s, row.study_id)
         if protocol is None:
             raise HTTPException(404, "no protocol for this study")
         # Resolve the first task block at pairing time as display/config state,
@@ -599,13 +601,15 @@ def register(app: FastAPI, deps: ApiDeps):
     ) -> dict:
         """
         Session-boundary re-pull of the capture config (FR-INST-21): the extension
-        re-fetches this at the start of each session so a protocol change lands
-        without re-pairing.
+        re-fetches this at the start of each session. It is built from the
+        protocol the link was issued under, so what a participant consented to
+        stays what their sessions record; a protocol change applies to links
+        issued after it.
         """
         row = deps.resolve_credential(s, authorization)
         if row is None or row.study_id != study_id:
             raise HTTPException(401, "a valid session credential is required")
-        protocol = deps.resolve_study_protocol(s, study_id)
+        protocol = row.protocol_snapshot or deps.resolve_study_protocol(s, study_id)
         if protocol is None:
             raise HTTPException(404, "no protocol for this study")
         task, block = _block_for_session(s, protocol, row, sessionId)

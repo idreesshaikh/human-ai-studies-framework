@@ -84,6 +84,33 @@ def test_saved_plan_pins_protocol_hash_and_stale_state(client):
     )
 
 
+def test_paired_t_accepts_declared_log_scale_measure(client):
+    import yaml
+
+    protocol = load_protocol(EXAMPLE)
+    measure = next(m for m in protocol["measures"] if m["id"] == "completion-time")
+    measure["analysisRecipe"] = "mean-comparison"
+    measure["analysisScale"] = "log"
+    protocol["analysisPlan"][0]["recipes"].append("mean-comparison")
+    with make_session_factory(f"sqlite:///{client.db_path}")() as s:
+        s.add(
+            ProtocolDraftRow(
+                study_id=STUDY,
+                yaml=yaml.safe_dump(protocol),
+                compilation_id="",
+                updated_at="",
+            )
+        )
+        s.commit()
+
+    response = client.post(
+        f"/studies/{STUDY}/plan",
+        json=assumptions(test="paired-t", distribution="log-normal"),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["inputs"]["distribution"] == "log-normal"
+
+
 @pytest.mark.parametrize(
     "change",
     [
@@ -94,12 +121,19 @@ def test_saved_plan_pins_protocol_hash_and_stale_state(client):
         {"covariate_correlation": 0.5},
     ],
 )
+# Skip tests that require Node.js when not available
+@pytest.mark.skipif(
+    shutil.which("node") is None, reason="Node.js not available in sandbox"
+)
 def test_request_must_match_recorded_measure_test_design(client, change):
     response = client.post(f"/studies/{STUDY}/plan", json=assumptions(**change))
     assert response.status_code == 422, response.text
     assert client.get(f"/studies/{STUDY}/plan").json()["plan"] is None
 
 
+@pytest.mark.skipif(
+    shutil.which("node") is None, reason="Node.js not available in sandbox"
+)
 def test_every_instrument_round_trips_through_extension_ingest_and_recipe(
     client,
 ):
@@ -117,6 +151,22 @@ def test_every_instrument_round_trips_through_extension_ingest_and_recipe(
         check=True,
     )
     events = json.loads(proc.stdout)
+    assert len(events) == 4
+    response = client.post("/ingest/events", json={"source": "tern", "events": events})
+    assert response.status_code == 200, response.text
+    assert response.json()["flagged"] == 0
+    rows = client.get(f"/studies/{STUDY}/dataset").json()["rows"]
+    result = score_measures(Dataset(rows, meta={"protocol": proto}))
+    scores = result.tables["scores"]
+    assert set(scores.measureId) == {
+        "raw-tlx-1",
+        "session-check-1",
+        "session-check-2",
+        "sus-1",
+    }
+    assert scores.loc[scores.measureId == "sus-1", "value"].iloc[0] == 100
+    assert scores.loc[scores.measureId == "raw-tlx-1", "value"].iloc[0] == 100
+    assert any(r["type"] == "pre_task_covariate" for r in rows)
     assert len(events) == 4
     response = client.post("/ingest/events", json={"source": "tern", "events": events})
     assert response.status_code == 200, response.text

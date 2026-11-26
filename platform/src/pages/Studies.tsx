@@ -40,7 +40,7 @@ export function Studies() {
   const studies = useMemo(
     () =>
       [...(data ?? [])].sort((a, b) =>
-        studyDisplayName(names, a.id).localeCompare(studyDisplayName(names, b.id)),
+        studyDisplayName(names, a.id, a.name).localeCompare(studyDisplayName(names, b.id, b.name)),
       ),
     [data, names],
   );
@@ -98,18 +98,13 @@ export function Studies() {
   };
 
   const deleteName = deleteTarget
-    ? studyDisplayName(names, deleteTarget.id)
+    ? studyDisplayName(names, deleteTarget.id, deleteTarget.name)
     : "";
 
   return (
     <div className="mx-auto flex max-w-reading flex-col gap-section p-gutter">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="type-title text-text">Studies</h1>
-          <p className="type-body mt-1 max-w-[68ch] text-pretty text-text-muted">
-            Your study designs and research data.
-          </p>
-        </div>
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="type-title text-text">Studies</h1>
         {studies.length > 0 && !composing && (
           <Button onClick={startCreating}>
             <Plus aria-hidden /> New study
@@ -169,9 +164,9 @@ export function Studies() {
 
       {data && data.length === 0 && (
         <EmptyState
-          line="No studies yet. Start one here or choose a template."
+          line="Create your first study or start from a template."
           action={
-            <div className="flex flex-wrap justify-center gap-2">
+            <div className="flex flex-wrap justify-center gap-3">
               {!composing && (
                 <Button onClick={startCreating}>
                   <Plus aria-hidden /> New study
@@ -179,7 +174,7 @@ export function Studies() {
               )}
               <Button asChild variant="outline">
                 <Link to="/repertoire">
-                  Browse templates <ChevronRight aria-hidden />
+                  Browse templates
                 </Link>
               </Button>
             </div>
@@ -190,7 +185,7 @@ export function Studies() {
       {studies.length > 0 && (
         <ul className="overflow-hidden rounded-plate border border-border bg-surface divide-y divide-border">
           {studies.map((study) => {
-            const title = studyDisplayName(names, study.id);
+            const title = studyDisplayName(names, study.id, study.name);
             return (
               <li key={study.id} className="flex items-center gap-2 px-3 py-1 sm:px-4">
                 <Link

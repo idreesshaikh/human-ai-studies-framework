@@ -1,6 +1,7 @@
 """
 Live arXiv and Semantic Scholar fetchers for the refresh job (URL builders are
-pure).
+pure). Semantic Scholar goes through :mod:`middleware.semantic_scholar`, the one
+client that paces, retries and times out every S2 request.
 """
 
 from __future__ import annotations
@@ -11,11 +12,10 @@ import time
 import urllib.parse
 import urllib.request
 
+from middleware import semantic_scholar
+
 ARXIV_API = "https://export.arxiv.org/api/query"
-S2_BULK = "https://api.semanticscholar.org/graph/v1/paper/search/bulk"
-S2_FIELDS = (
-    "title,year,publicationDate,externalIds,abstract,citationCount,venue,authors"
-)
+S2_FIELDS = semantic_scholar.SEARCH_FIELDS
 ARXIV_MIN_INTERVAL_S = (
     3.0  # arXiv terms: one request every three seconds, one connection
 )
@@ -41,19 +41,11 @@ def arxiv_url(query: str, since: str, until: str, start: int, max_results: int) 
     return f"{ARXIV_API}?{urllib.parse.urlencode(params)}"
 
 
-def s2_bulk_url(
-    query: str, since: str, until: str, token: str | None, limit: int
-) -> str:
-    params = {
-        "query": query,
-        "publicationDateOrYear": f"{since}:{until}",
-        "fields": S2_FIELDS,
-        "limit": limit,
-        "sort": "publicationDate:desc",
-    }
-    if token:
-        params["token"] = token
-    return f"{S2_BULK}?{urllib.parse.urlencode(params)}"
+def s2_bulk_url(query: str, since: str, until: str, token: str | None) -> str:
+    """A bulk-search page published within ``since..until``, newest first."""
+    return semantic_scholar.bulk_search_url(
+        query, since=since, until=until, token=token
+    )
 
 
 def _user_agent() -> str:
@@ -95,14 +87,6 @@ def _arxiv_get(url: str) -> bytes:
             _arxiv_last = _clock()
 
 
-def fetch_s2(query: str, since: str, until: str, token: str | None, limit: int) -> dict:
-    """
-    One Semantic Scholar bulk-search page (self-paced, with 429 backoff, by its
-    client).
-    """
-    from middleware import semantic_scholar
-
-    payload = semantic_scholar.get_json(s2_bulk_url(query, since, until, token, limit))
-    if not isinstance(payload, dict):
-        raise ValueError("Semantic Scholar returned something other than an object")
-    return payload
+def fetch_s2(query: str, since: str, until: str, token: str | None) -> dict:
+    """One Semantic Scholar bulk-search page (up to 1,000 papers and a token)."""
+    return semantic_scholar.search_bulk(query, since=since, until=until, token=token)

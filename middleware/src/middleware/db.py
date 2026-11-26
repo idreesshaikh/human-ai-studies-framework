@@ -385,6 +385,11 @@ class EnrollmentToken(Base):
     # Per-mint capture-config overrides, layered on the protocol-derived defaults at
     # redeem time (FR-INST-20). ``{"toggles": [{"instrument", "path", "value"}, ...]}``.
     capture_overrides: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # The protocol the link was issued under. Capture, tasks and consent come
+    # from it for the life of the link, so a later protocol change never alters
+    # what an already-consented participant's sessions record. Links issued
+    # before this column existed have none and follow the current protocol.
+    protocol_snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     token: Mapped[str] = mapped_column(String, unique=True, index=True)
     credential: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     expires_at: Mapped[str] = mapped_column(String)
@@ -420,6 +425,13 @@ class Study(Base):
     protocol_version: Mapped[str] = mapped_column(String, default="")
     phase: Mapped[str] = mapped_column(String, default="")
     data_path: Mapped[str] = mapped_column(String, default="")
+    # A starting protocol the study was created from (a template), as YAML. It is
+    # what the draft compiles over until a protocol is applied; it is never the
+    # study's protocol itself, so a template study is reviewed and applied like
+    # any other before it can recruit.
+    seed_protocol: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The name the researcher gave the study; the id is only its slug.
+    name: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class EvidenceMapRow(Base):
@@ -460,6 +472,9 @@ class ConversationTurn(Base):
     # the server just before a proxy/browser notices the connection failed; the
     # blocking retry must then resolve to this row instead of appending again.
     request_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    # The questions a platform turn asked, each ``{"ask", "options"}``, so the
+    # chat can offer the options as replies after a reload.
+    questions: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
 
 class DesignMoveRow(Base):
@@ -644,6 +659,9 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     _migrate_paper_curator_note(engine)
     _migrate_corpus_curation(engine)
     _migrate_conversation_recommendations(engine)
+    _migrate_conversation_questions(engine)
+    _migrate_study_seed_protocol(engine)
+    _migrate_study_name(engine)
     _migrate_conversation_request_id(engine)
     _migrate_paper_edge_authors(engine)
     _migrate_design_move_seq(engine)
@@ -652,6 +670,7 @@ def make_session_factory(db_url: str | Path) -> sessionmaker:
     _migrate_metric_task_id(engine)
     _migrate_invitation_created_at(engine)
     _migrate_enrollment_capture_overrides(engine)
+    _migrate_enrollment_protocol_snapshot(engine)
     _migrate_paper_edge_abstract(engine)
 
     if is_pg:
@@ -781,6 +800,32 @@ def _migrate_metric_task_id(engine) -> None:
             log.info("Added task_id column to metric_rows (per-task attribution)")
 
 
+def _add_column(engine, table: str, column: str, ddl: str) -> bool:
+    """Add ``table.column`` if missing, safe when several processes start on
+    the same database at once. Returns whether this call added it."""
+    with engine.begin() as conn:
+        if any(c["name"] == column for c in inspect(conn).get_columns(table)):
+            return False
+        if _is_postgres(engine):
+            conn.execute(
+                text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {ddl}")
+            )
+            return True
+        # SQLite has no IF NOT EXISTS for ADD COLUMN. Serialize writers and
+        # recheck after acquiring the lock in case another process added it.
+        conn.exec_driver_sql("BEGIN IMMEDIATE")
+        if any(c["name"] == column for c in inspect(conn).get_columns(table)):
+            return False
+        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
+        return True
+
+
+def _migrate_enrollment_protocol_snapshot(engine) -> None:
+    """Add ``enrollment_tokens.protocol_snapshot`` if missing (idempotent)."""
+    if _add_column(engine, "enrollment_tokens", "protocol_snapshot", "JSON"):
+        log.info("Added protocol_snapshot to enrollment_tokens (issue-time protocol)")
+
+
 def _migrate_enrollment_capture_overrides(engine) -> None:
     """Add ``enrollment_tokens.capture_overrides`` if missing (idempotent)."""
     with engine.begin() as conn:
@@ -854,6 +899,24 @@ def _migrate_paper_edge_abstract(engine) -> None:
         if "dst_abstract" not in cols:
             conn.execute(text("ALTER TABLE paper_edges ADD COLUMN dst_abstract TEXT"))
             log.info("Added dst_abstract column to paper_edges (paper previews)")
+
+
+def _migrate_study_name(engine) -> None:
+    """Add ``studies.name`` if missing (both dialects, idempotent)."""
+    if _add_column(engine, "studies", "name", "TEXT"):
+        log.info("Added name to studies (the name the researcher typed)")
+
+
+def _migrate_study_seed_protocol(engine) -> None:
+    """Add ``studies.seed_protocol`` if missing (both dialects, idempotent)."""
+    if _add_column(engine, "studies", "seed_protocol", "TEXT"):
+        log.info("Added seed_protocol to studies (unapplied starting protocol)")
+
+
+def _migrate_conversation_questions(engine) -> None:
+    """Add ``conversation_turns.questions`` if missing (both dialects, idempotent)."""
+    if _add_column(engine, "conversation_turns", "questions", "JSON"):
+        log.info("Added questions to conversation_turns (answer options)")
 
 
 def _migrate_conversation_recommendations(engine) -> None:

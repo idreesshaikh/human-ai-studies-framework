@@ -6,6 +6,7 @@ import { OPEN_SETUP, PLAN_EMPTY_TITLE, PLAN_EMPTY_BODY, conditionLabel } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Field } from "@/components/ui/field";
 import { AiAccessWarnings } from "@/components/charts/AiAccessWarnings";
 import { NonCompliancePanel } from "@/components/charts/NonCompliancePanel";
 import { hasRole, type Role } from "@/lib/capabilities";
@@ -63,6 +64,25 @@ function testsFor(protocol: PlannerProtocol, measure?: TypedMeasure) {
 }
 const percent = (n: number) => `${(n * 100).toFixed(1)}%`;
 
+function distributionsFor(test: string, measure?: TypedMeasure): string[] {
+  const logScale = measure?.analysisScale === "log";
+  if (test === "two-sample-t" || test === "paired-t")
+    return logScale ? ["log-normal"] : ["normal"];
+  if (test === "mann-whitney")
+    return logScale ? ["log-normal"] : ["normal", "log-normal", "ordinal"];
+  if (test === "wilcoxon")
+    return logScale ? [] : ["normal", "ordinal"];
+  return [];
+}
+
+function preferredDistribution(
+  options: string[],
+  measure?: TypedMeasure,
+): string {
+  const preferred = measure?.analysisScale === "log" ? "log-normal" : "normal";
+  return options.includes(preferred) ? preferred : (options[0] ?? "normal");
+}
+
 export function PowerPanel({
   studyId,
   active = true,
@@ -116,23 +136,26 @@ export function PowerPanel({
           measures.find((m) => m.id === doc.plan?.measureId) ?? first;
         const allowed = testsFor(doc.protocol, selected);
         const prior = doc.plan?.inputs;
+        const test =
+          prior && allowed.includes(prior.test)
+            ? prior.test
+            : (allowed[0] ?? "");
+        const options = distributionsFor(test, selected);
+        const savedDistribution =
+          prior && doc.plan?.measureId === selected?.id
+            ? prior.distribution
+            : preferredDistribution(options, selected);
         setInputs({
           ...(prior ?? DEFAULTS),
           design: doc.protocol.participants.design,
           counterbalanced: doc.protocol.participants.counterbalanced,
           planned_n:
             prior?.planned_n ?? Math.max(4, doc.protocol.participants.planned),
-          test:
-            prior && allowed.includes(prior.test)
-              ? prior.test
-              : (allowed[0] ?? ""),
+          test,
           measure_id: selected?.id,
-          distribution:
-            prior && doc.plan?.measureId === selected?.id
-              ? prior.distribution
-              : selected?.analysisScale === "log"
-                ? "log-normal"
-                : "normal",
+          distribution: options.includes(savedDistribution)
+            ? savedDistribution
+            : preferredDistribution(options, selected),
         });
       })
       .catch((e) => {
@@ -158,6 +181,24 @@ export function PowerPanel({
   const measure = measures.find((m) => m.id === inputs.measure_id);
   const tests = protocol ? testsFor(protocol, measure) : [];
   const paired = inputs.design === "within-subjects";
+  const distributionOptions = distributionsFor(inputs.test, measure);
+  const noSupportedDistribution = distributionOptions.length === 0;
+  const invalidTPeriodOrder =
+    inputs.test.endsWith("-t") &&
+    (inputs.period_effect !== 0 || inputs.order_effect !== 0);
+  const unsupportedPlan =
+    noSupportedDistribution ||
+    !distributionOptions.includes(inputs.distribution) ||
+    invalidTPeriodOrder;
+  const distributionHint = noSupportedDistribution
+    ? "This outcome and test combination is not supported. Change the measure or analysis in Setup."
+    : measure?.analysisScale === "log"
+      ? "This measure is declared on the log scale and requires log-normal assumptions."
+      : inputs.test === "wilcoxon"
+        ? "Log-normal assumptions are not supported for paired Wilcoxon plans."
+        : inputs.test.endsWith("-t")
+          ? "Log-normal assumptions require a measure declared on the log scale; ordinal assumptions are for rank tests."
+          : undefined;
   const simulation = !inputs.test.endsWith("-t");
   const dirty =
     result &&
@@ -283,10 +324,7 @@ export function PowerPanel({
                 className="grid min-w-0 gap-5 sm:grid-cols-2 lg:grid-cols-3"
               >
                 {measures.length > 0 && (
-                  <label className="flex flex-col gap-1">
-                    <span className="type-label text-text">
-                      Outcome measure
-                    </span>
+                  <Field label="Outcome measure">
                     <Select
                       value={inputs.measure_id ?? ""}
                       options={measures.map((m) => ({
@@ -295,44 +333,67 @@ export function PowerPanel({
                       }))}
                       onValueChange={(id) => {
                         const m = measures.find((v) => v.id === id);
+                        const test = testsFor(protocol, m)[0] ?? "";
+                        const options = distributionsFor(test, m);
                         setInputs((p) => ({
                           ...p,
                           measure_id: id,
-                          test: testsFor(protocol, m)[0] ?? "",
-                          distribution:
-                            m?.analysisScale === "log"
-                              ? "log-normal"
-                              : "normal",
+                          test,
+                          distribution: options.includes(p.distribution)
+                            ? p.distribution
+                            : preferredDistribution(options, m),
                         }));
                       }}
                     />
-                  </label>
+                  </Field>
                 )}
-                <label className="flex flex-col gap-1">
-                  <span className="type-label text-text">Planned test</span>
+                <Field label="Planned test">
                   <Select
                     value={inputs.test}
                     options={tests.map((t) => ({ value: t, label: LABELS[t] }))}
-                    onValueChange={(t) => set("test", t)}
+                    onValueChange={(t) => {
+                      const options = distributionsFor(t, measure);
+                      setInputs((p) => ({
+                        ...p,
+                        test: t,
+                        distribution: options.includes(p.distribution)
+                          ? p.distribution
+                          : preferredDistribution(options, measure),
+                      }));
+                    }}
                   />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="type-label text-text">
-                    Outcome distribution
-                  </span>
+                </Field>
+                <Field
+                  label="Outcome distribution"
+                  hint={distributionHint}
+                >
                   <Select
                     value={inputs.distribution}
+                    disabled={noSupportedDistribution}
                     options={[
-                      { value: "normal", label: "Normal" },
-                      {
-                        value: "log-normal",
-                        label: "Log-normal (completion times)",
-                      },
-                      { value: "ordinal", label: "Ordinal (Likert ratings)" },
+                      ...(distributionOptions.includes("normal")
+                        ? [{ value: "normal", label: "Normal" }]
+                        : []),
+                      ...(distributionOptions.includes("log-normal")
+                        ? [{ value: "log-normal", label: "Log-normal (completion times)" }]
+                        : []),
+                      ...(distributionOptions.includes("ordinal")
+                        ? [{ value: "ordinal", label: "Ordinal (Likert ratings)" }]
+                        : []),
                     ]}
                     onValueChange={(v) => set("distribution", v)}
                   />
-                </label>
+                </Field>
+                {noSupportedDistribution && (
+                  <p className="type-note text-text-muted sm:col-span-2 lg:col-span-3" role="status">
+                    No planner distribution is available for this outcome and test. Choose another outcome or change the analysis in Setup.
+                  </p>
+                )}
+                {invalidTPeriodOrder && (
+                  <p className="type-note text-text-muted sm:col-span-2 lg:col-span-3" role="status">
+                    Analytic t planning requires zero period and order effects. Set both to zero or change the analysis in Setup.
+                  </p>
+                )}
                 {number(
                   "effect",
                   "Effect to detect",
@@ -401,7 +462,9 @@ export function PowerPanel({
                         -1000,
                         1000,
                         "any",
-                        "Same units as effect; nonzero effects require simulation.",
+                        inputs.test.endsWith("-t")
+                          ? "Analytic t planning requires zero period and order effects."
+                          : "Same units as effect; nonzero effects are simulated.",
                       )}
                       {number(
                         "order_effect",
@@ -409,7 +472,9 @@ export function PowerPanel({
                         -1000,
                         1000,
                         "any",
-                        "Shift for participants assigned the positive order; carryover is unsupported.",
+                        inputs.test.endsWith("-t")
+                          ? "Analytic t planning requires zero period and order effects."
+                          : "Shift for participants assigned the positive order; carryover is unsupported.",
                       )}
                     </>
                   )}
@@ -439,14 +504,14 @@ export function PowerPanel({
               <div className="flex flex-wrap gap-3">
                 <Button
                   type="submit"
-                  disabled={!canEdit || busy || !tests.length}
+                  disabled={!canEdit || busy || !tests.length || unsupportedPlan}
                 >
                   {busy ? "Calculating…" : "Calculate and save plan"}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={!canEdit || busy || !tests.length}
+                  disabled={!canEdit || busy || !tests.length || unsupportedPlan}
                   onClick={(e) => {
                     if (e.currentTarget.form?.reportValidity())
                       void calculate(true);

@@ -1,8 +1,10 @@
 # Frontend development
 
-The researcher workspace uses React, TypeScript, Vite, Tailwind, and vendored
-Radix-based components. The server supplies study data and validates changes.
-Start with the [repository setup](../../README.md) and
+The researcher workspace uses React, TypeScript, Vite and Tailwind. Dialogs,
+menus, selects and segmented controls in `src/components/ui/` wrap headless
+[ui-sdk](https://ui-sdk.dev/) behaviors (pinned beta; top-layer popups, no
+portals) and are styled only with the project tokens. The server supplies study
+data and validates changes. Start with the [repository setup](../../README.md) and
 [architecture](../../docs/architecture.md).
 
 ## Find the code

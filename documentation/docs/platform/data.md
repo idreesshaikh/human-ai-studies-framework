@@ -1,76 +1,69 @@
-# Data
+# Review sessions and export
 
-The **Data** tab shows captured sessions for the study, checks them for
-gaps, and records your decision on whether each session counts. Open **Download
-study records** here, or use **Export** in the study header.
+The **Data** tab shows the sessions captured for the study, checks them for gaps,
+records your decision on whether each one counts, and downloads the records. It
+needs a protocol: until the study has one, the tab says **No data yet** and offers
+**Open Setup**.
 
-<figure markdown="span">
-  ![Data tab showing synthetic sessions and download controls](../assets/screens/data-light.webp#only-light)
-  ![Data tab showing synthetic sessions and download controls](../assets/screens/data-dark.webp#only-dark)
-  <figcaption>The example sessions are synthetic and excluded from research exports.</figcaption>
-</figure>
+![Data tab showing synthetic sessions and download controls](../assets/screens/data.webp)
 
-## Download study records
-
-| Button | What you get |
-| --- | --- |
-| **Data (.zip)** | Tidy event CSVs, joined JSON and a data dictionary. Synthetic rows are left out; pilot tags and inclusion decisions are kept |
-| **Design card (.md)** | The saved power assumptions, the fixed analysis, instrument versions and wording, the tool and model each session used, audit results and inclusion decisions |
-| **Replication kit** | The design card plus the frozen protocol, data and report |
-
-The data bundle also contains the design card as JSON. Nothing in these files
-rates the study's validity or pools repeated runs.
-
-## Check outcome capture
-
-After a rehearsal, open **Outcome capture checks**. **Check captured inputs**
-compares what was captured with what each declared outcome needs: the
-instrument, required fields and versions, condition coverage, and participant
-pairs. Expand a result for what to fix, and download the checks as JSON to keep
-the protocol and data fingerprints.
-
-This checks inputs, not validity. Custom measures the checker does not know
-stay unverified, and pilot sessions can be checked without changing their tags
-or decisions.
+The tab runs from the top: **Download study records**, **Outcome capture checks**,
+**Sessions**, **Session review**, **Measurements by condition** and **Recorded
+analysis plan**. The example study's sessions are synthetic. They sit under a
+notice that says so and are left out of exports.
 
 ## Review sessions
 
-Search sessions by participant, condition or session ID. Each row shows its
-event count, metric rows and gaps in the event sequence; expand it for its
-timeline.
+**Search sessions** filters by participant, condition or session ID. Each row shows
+the participant, condition and session ID, the number of events, metric rows and
+gaps in the event sequence, and a status: **no flags**, **Review capture** with a
+count of flagged events, a count of missing events, or **in progress**.
 
-**Session review** starts with control sessions that need attention. Switch
-**Show sessions** to **All sessions** to decide on any session. For each one
-you can:
+Select a row to see its task, the flags it carries, how many events each source
+sent, any required source that sent none, and a timeline with one lane per source.
+Switch the timeline to a table with **Table**.
 
-- **tag it as a pilot**, with a reason. Pilots stay in exports, marked, and are
-  left out of confirmatory recipes and metric comparisons;
-- **record an inclusion or exclusion decision.** Each decision keeps the date
-  and its history. With sign-in off, the recorded identity is `local`.
+## Tag pilots and record decisions
 
-## The control-arm audit
+Open **Session review** and select a session. **Show sessions** starts at **Needs
+review**, the control sessions that need attention; choose **All sessions** to
+decide on any session. For each one you can:
 
-For sessions in a no-AI condition, the audit reports one of three outcomes:
+- tick **Pilot session**. Pilots stay in exports, marked, and are left out of
+  confirmatory analysis and of **Measurements by condition**;
+- set **Include in analysis** to **Include**, **Exclude** or **Undecided**.
 
-| Shown as | Meaning |
+Both need a **Reason for the decision or pilot tag**. Choose **Save decision**. Each
+decision keeps its date and history, and with sign-in off the recorded identity is
+`local`. Pilot sessions also feed [Update from tagged pilot
+sessions](planning.md#update-from-pilot-sessions) on Plan.
+
+## Download the records
+
+**Download study records** has three buttons. The study header's **Export** menu
+has those and two more.
+
+| Download | What you get |
 | --- | --- |
-| **No captured AI-use signal** | No signal in the captured data. This never proves no AI was used |
-| **Captured AI-use signal** | A heuristic fired. It is a reason to look, not proof of AI use |
-| **Capture needs review** | Capture boundaries or settings were missing, so the audit abstains |
+| **Data (.zip)** | One CSV per event type, the joined timeline, the protocol, a data dictionary and a manifest with checksums. Synthetic rows are left out; pilot tags and inclusion decisions are kept |
+| **Design card (.md)** | The recorded design: planned power and assumptions, the analysis fixed in advance, measures and instrument wording, the tool and model versions each session recorded, audit results and inclusion decisions. It reports what was recorded and does not rate validity |
+| **Replication kit** | The design card plus the frozen protocol, data and report, with pinned versions |
+| **Elicitation record** | The conversation, decisions, sources, compilations and approvals behind the protocol (Export menu) |
+| **Starter notebook** | The dataset and planned recipes, ready for your analysis, with nothing run (Export menu) |
 
-!!! warning "Accuracy not yet measured"
-    The audit's error rates have not been measured; independent human
-    calibration sessions are required first. Until then, treat every outcome
-    as a prompt for your own judgement. **Capture limits** on the tab lists
-    what the audit cannot see: paste origins and AI edit classifications are
-    heuristics, and command-line tools and activity outside the editor are
-    not captured.
+Nothing in these files rates the study's validity, and repeated runs are never
+pooled automatically.
 
-## Results
+## Read the results
 
-Once real sessions arrive, **Measurements by condition** compares the outcomes
-across conditions, and **Recorded analysis plan** shows the analysis the
-protocol fixed in advance.
+Once real sessions arrive, **Measurements by condition** draws every observation
+for the **Metric** you choose, by condition, as a **Chart** or a **Table**.
+**Recorded analysis plan** lists the tests, effect sizes and corrections the
+protocol fixed in advance. Read its assumptions before you interpret results. For
+pilot updates, numerical limits and the audit, see the
+[planner guide](https://github.com/idreesshaikh/human-ai-studies-framework/blob/main/docs/planner.md).
 
-The [planner guide](https://github.com/idreesshaikh/human-ai-studies-framework/blob/main/docs/planner.md)
-covers pilot updates, numerical limits and how the audit will be calibrated.
+## Next steps
+
+- [Check outcome capture](outcome-checks.md) after a rehearsal
+- [Control-arm session review](control-arm-review.md)

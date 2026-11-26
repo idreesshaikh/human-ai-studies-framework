@@ -7,7 +7,7 @@ from middleware.settings import Settings
 from protocol.loader import validate_protocol
 from protocol.measure_catalog import measure_catalog
 
-from middleware import compiler, design_llm
+from middleware import compiler
 
 
 @pytest.fixture
@@ -83,25 +83,6 @@ def test_signed_identity_is_required_for_the_catalog_and_suggestions(tmp_path):
             ).status_code
             == 401
         )
-
-
-def test_catalog_patch_is_preserved_and_hallucinated_fields_are_not_trusted():
-    patch = design_llm._validate_patch(
-        "add-measure",
-        {
-            "section": "measures",
-            "op": "set",
-            "value": {
-                "catalogId": "S1",
-                "fields": ["secret.data"],
-                "analysisRecipe": "invented",
-            },
-        },
-    )
-    assert patch is not None
-    assert patch["value"]["catalogId"] == "S1"
-    assert "fields" not in patch["value"]
-    assert "analysisRecipe" not in patch["value"]
 
 
 @pytest.mark.parametrize(

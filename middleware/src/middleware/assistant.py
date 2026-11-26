@@ -3,9 +3,10 @@ Chat-completions client layer. Provider, endpoint, model, key, timeouts and retr
 come from the environment only (see ``.env.example``). The OpenAI-compatible API
 shape lets the same settings work with hosted and local providers.
 
-Design turns use ``LLM_DESIGN_MODEL`` when set.
-The design conversation and the corpus match ladder are the only callers; this module
-holds no conversational surface of its own.
+Design turns use ``LLM_DESIGN_MODEL`` when set. The design conversation
+(``study_plan``) is the only caller of chat completions: one call per researcher
+message. Literature matching makes no model call. This module holds no
+conversational surface of its own.
 """
 
 from __future__ import annotations

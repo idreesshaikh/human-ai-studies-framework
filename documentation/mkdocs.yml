@@ -29,19 +29,21 @@ theme:
       toggle:
         icon: material/weather-sunny
         name: Switch to light theme
+  # The whole researcher's path stays visible in the sidebar, so there are no
+  # top tabs: sections are always open, every page is listed (a section's index
+  # page is an ordinary first item, not a hidden heading link), and each page
+  # shows where it sits and links to the previous and next one.
   features:
     - navigation.instant
-    - navigation.tabs
-    - navigation.indexes
-    - navigation.top
+    - navigation.path
     - navigation.sections
     - navigation.footer
+    - navigation.top
     - toc.follow
     - content.code.annotate
     - content.code.copy
     - search.suggest
     - search.highlight
-    - header.autohide
 
 extra_css:
   - stylesheets/studyloop.css
@@ -84,20 +86,39 @@ extra:
 
 copyright: Copyright &copy; 2026 Idrees Razak and Ole Becker. Released under the MIT License.
 
+# The researcher's path: install, design, plan, run, read the data. TERN's own
+# guide for participants and the reference follow.
 nav:
   - Home: index.md
-  - PHOENIX:
-    - platform/index.md
-    - platform/quickstart.md
-    - platform/design-conversation.md
-    - platform/protocol-draft.md
-    - platform/library.md
-    - platform/planning.md
-    - platform/participants.md
-    - platform/data.md
-  - TERN:
-    - extension/index.md
-    - extension/install.md
-    - extension/using.md
-    - extension/captured-data.md
-    - extension/privacy.md
+  - Get started:
+    - Install and run: get-started/index.md
+    - Explore the example study: get-started/example-study.md
+    - Your first study: get-started/first-study.md
+  - Design a study:
+    - The Setup tab: platform/index.md
+    - Design conversation: platform/design-conversation.md
+    - Templates: platform/templates.md
+    - Enter the details directly: platform/manual-entry.md
+    - Literature: platform/library.md
+    - Review and apply the protocol: platform/protocol-draft.md
+  - Plan:
+    - Plan recruitment: platform/planning.md
+    - Non-compliance sensitivity: platform/non-compliance.md
+  - Run:
+    - Participant links: platform/participants.md
+    - Give participants TERN: platform/give-participants-tern.md
+  - Data:
+    - Review sessions and export: platform/data.md
+    - Check outcome capture: platform/outcome-checks.md
+    - Control-arm session review: platform/control-arm-review.md
+  - TERN for participants:
+    - About TERN: extension/index.md
+    - Install and connect: extension/install.md
+    - Run a session: extension/using.md
+    - Captured data: extension/captured-data.md
+    - Privacy: extension/privacy.md
+  - Reference:
+    - Configuration: reference/configuration.md
+    - Connect a model: reference/model-providers.md
+    - Keep the literature library current: reference/literature-library.md
+    - Scope and limits: reference/scope.md

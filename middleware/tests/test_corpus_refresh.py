@@ -35,8 +35,8 @@ def _fetchers(arxiv=None, s2=None):
             else b'<feed xmlns="http://www.w3.org/2005/Atom"/>'
         )
 
-    def fetch_s2(q, since, until, token, n):
-        calls["s2"].append((q, since, until, token, n))
+    def fetch_s2(q, since, until, token):
+        calls["s2"].append((q, since, until, token))
         if isinstance(s2_payload, Exception):
             raise s2_payload
         return s2_payload
@@ -48,7 +48,7 @@ def _run(sf, **kw):
     fa, fs, calls = _fetchers(kw.pop("arxiv", None), kw.pop("s2", None))
     out = rp.refresh(
         sf,
-        config=CONFIG,
+        config=kw.pop("config", CONFIG),
         since="2026-09-08",
         until="2026-10-08",
         fetch_arxiv=fa,
@@ -215,6 +215,35 @@ def test_scheduler_first_delay_can_be_cancelled_before_any_run():
     assert calls == []
 
 
+def test_scheduler_retries_at_the_failed_run_deadline_without_a_restart():
+    retry_s = rp.FAILED_RETRY_HOURS * 3600.0
+    delays, runs = [], []
+    elapsed = 0.0
+
+    class StopAfterTwoRuns:
+        def wait(self, delay):
+            nonlocal elapsed
+            delays.append(delay)
+            elapsed += delay
+            return len(runs) == 2
+
+    def run():
+        runs.append(elapsed)
+
+    def due_in():
+        return max(0.0, runs[-1] + retry_s - elapsed) if runs else 0.0
+
+    rp.run_scheduler(
+        StopAfterTwoRuns(),
+        interval_s=24 * 3600,
+        run=run,
+        first_delay_s=60,
+        due_in=due_in,
+    )
+    assert runs == [60, 60 + retry_s]
+    assert delays[:2] == [60, retry_s]
+
+
 def test_start_scheduler_rejects_a_non_positive_interval():
     with pytest.raises(ValueError):
         rp.start_scheduler(interval_hours=0, run=lambda: None)
@@ -302,3 +331,169 @@ def test_overlapping_refreshes_are_refused_atomically(sf, monkeypatch):
         "two refreshes fetched concurrently after both checked an empty lock"
     )
     assert sum(isinstance(item, rp.RefreshInProgress) for item in outcomes) == 1
+
+
+# --- snowballing, dedupe and cadence
+
+
+def _seed_examples(sf, n=3):
+    with sf() as s:
+        for i in range(n):
+            s.add(
+                Paper(
+                    study_id=CORPUS_STUDY_ID,
+                    paper_ref=f"corpus:seed-{i}",
+                    title=f"Seed {i}",
+                    arxiv_id=f"2501.0000{i}",
+                    tier="A",
+                    year=2025,
+                    added_at="",
+                )
+            )
+        s.commit()
+
+
+def _citing(pid, arxiv):
+    return {
+        "paperId": pid,
+        "title": f"New paper citing an example {pid}",
+        "abstract": "A fresh study.",
+        "year": 2026,
+        "publicationDate": "2026-10-01",
+        "externalIds": {"ArXiv": arxiv},
+    }
+
+
+def test_new_citations_of_examples_become_candidates(sf):
+    _seed_examples(sf)
+    asked = []
+
+    def fetch_citations(paper_id, since, until, n):
+        asked.append((paper_id, since, until))
+        if paper_id.endswith("1"):
+            raise RuntimeError("HTTP 429")
+        return [_citing(f"c{paper_id[-1]}", f"2610.1000{paper_id[-1]}")]
+
+    out, _ = _run(
+        sf,
+        config={"semanticScholar": ["q"], "citations": 3},
+        s2={"data": []},
+        fetch_citations=fetch_citations,
+    )
+    assert [a[0] for a in asked] == [
+        "ARXIV:2501.00000",
+        "ARXIV:2501.00001",
+        "ARXIV:2501.00002",
+    ]
+    assert all(a[1:] == ("2026-09-08", "2026-10-08") for a in asked)
+    assert sorted(out["candidates"]) == ["arxiv:2610.10000", "arxiv:2610.10002"]
+    assert out["status"] == "ok"  # one example failing does not fail the source
+    with sf() as s:
+        assert {c.source for c in s.query(rp.CorpusCandidate)} == {"s2-cites"}
+
+
+def test_citations_failing_for_every_example_is_recorded(sf):
+    _seed_examples(sf, n=2)
+
+    def down(*args):
+        raise RuntimeError("down")
+
+    out, _ = _run(
+        sf,
+        config={"semanticScholar": ["q"], "citations": 2},
+        s2={"data": []},
+        fetch_citations=down,
+    )
+    assert out["status"] == "partial"
+    assert out["errors"][0]["source"] == "s2-cites"
+
+
+def test_a_seed_is_known_by_the_arxiv_ref_its_id_implies(sf):
+    with sf() as s:
+        s.add(
+            Paper(
+                study_id=CORPUS_STUDY_ID,
+                paper_ref="corpus:harness-security",
+                title="A different title for the same paper",
+                arxiv_id="2610.07639",
+                tier="A",
+                added_at="",
+            )
+        )
+        s.commit()
+    out, _ = _run(sf)
+    assert "arxiv:2610.07639" not in out["candidates"] and out["duplicates"] == 1
+
+
+def test_example_ids_fall_back_to_arxiv_and_doi_forms(sf):
+    _seed_examples(sf, n=1)
+    with sf() as s:
+        s.add(
+            Paper(
+                study_id=CORPUS_STUDY_ID,
+                paper_ref="doi:10.1/kept",
+                title="Kept by hand",
+                curation="keep",
+                curation_by="human:alice",
+                added_at="",
+            )
+        )
+        s.commit()
+        positive, negative = rp.example_s2_ids(s)
+    assert sorted(positive) == ["ARXIV:2501.00000", "DOI:10.1/kept"]
+    assert negative == []
+
+
+def test_last_run_summary_reports_what_the_run_added(sf):
+    _run(sf)
+    with sf() as s:
+        rp.promote(s, "arxiv:2610.07639", decided_by="auto:curate", now="n")
+        s.commit()
+        summary = rp.last_run_summary(s, today=date(2026, 10, 9))
+    assert (summary["since"], summary["until"]) == ("2026-09-08", "2026-10-08")
+    assert (summary["newCandidates"], summary["admitted"], summary["waiting"]) == (
+        4,
+        1,
+        3,
+    )
+    assert len(summary["added"]) == 4 and summary["errorSources"] == []
+    assert {"ref", "title", "status"} <= set(summary["added"][0])
+
+
+def test_the_cadence_resumes_from_the_run_history(sf):
+    from datetime import UTC, datetime
+
+    day = 24 * 3600.0
+    at = datetime(2026, 10, 8, 18, tzinfo=UTC)
+    assert rp.seconds_until_due(sf, interval_s=day, now=lambda: at) == 0.0
+    _run(sf)  # finished 2026-10-08T12:00:00Z
+    assert rp.seconds_until_due(sf, interval_s=day, now=lambda: at) == 18 * 3600.0
+    with sf() as s:
+        s.query(rp.CorpusRefreshRun).one().status = "failed"
+        s.commit()
+    # A failed run is retried after two hours, not a full interval.
+    assert rp.seconds_until_due(sf, interval_s=day, now=lambda: at) == 0.0
+
+
+def test_the_scheduler_waits_until_a_run_is_due():
+    import threading
+
+    runs, waits = [], iter([3600.0, 0.0])
+    stop = threading.Event()
+
+    def run():
+        runs.append(1)
+        stop.set()
+
+    slept = []
+    real_wait = stop.wait
+
+    def fake_wait(delay):
+        slept.append(delay)
+        return real_wait(0)
+
+    stop.wait = fake_wait
+    rp.run_scheduler(
+        stop, interval_s=86400, run=run, first_delay_s=60, due_in=lambda: next(waits)
+    )
+    assert runs == [1] and slept[:2] == [60, 3600.0]

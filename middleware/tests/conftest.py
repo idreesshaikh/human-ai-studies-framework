@@ -20,6 +20,22 @@ def _model(monkeypatch):
     monkeypatch.setattr(assistant, "_post_json", double.post)
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _offline_literature():
+    """No test reaches Semantic Scholar. Live search runs on background threads
+    that can outlive a test's stubs, so it is switched off for the whole run;
+    tests of live search switch it back on around their own stubs."""
+    import os
+
+    before = os.environ.get("MIDDLEWARE_LIVE_SEARCH")
+    os.environ["MIDDLEWARE_LIVE_SEARCH"] = "0"
+    yield
+    if before is None:
+        os.environ.pop("MIDDLEWARE_LIVE_SEARCH", None)
+    else:
+        os.environ["MIDDLEWARE_LIVE_SEARCH"] = before
+
+
 _STUDY_SKETCH = (
     "I want to see whether developers finish maintenance tasks faster with "
     "an AI assistant than without one, in 45-minute lab sessions, "
@@ -71,22 +87,12 @@ def _reach_approved_protocol(client, study=STUDY):
     Drive an empty study to an approved, validating protocol draft - the state a
     researcher reaches by designing, and the only pre-condition enrollment now has.
     """
-    _ask(client, _STUDY_SKETCH, study)
-    reply = _ask(
-        client,
-        (
-            "what design and statistics should I use? I was thinking "
-            "within-subjects, with each developer doing both conditions "
-            "counterbalanced"
-        ),
-        study,
-    )
-    template_moves = [m for m in reply["moves"] if m["kind"] == "choose-template"]
-    assert template_moves, "no design was proposed after describing the study"
-    for m in template_moves:
+    reply = _ask(client, _STUDY_SKETCH, study)
+    assert reply["moves"], "no plan was proposed after describing the study"
+    for m in reply["moves"]:
         _accept(client, m["moveId"], study)
     result = _compile(client, study)
-    assert result["valid"], result["errors"]
+    assert result["valid"], (result["errors"], result["unresolved"])
     r = _approve(client, result["compilationId"], study)
     assert r.status_code == 200, r.text
     return result

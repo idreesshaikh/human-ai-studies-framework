@@ -1,11 +1,13 @@
 import * as React from "react";
 import { Check, ChevronDown } from "lucide-react";
-import * as Menu from "@radix-ui/react-dropdown-menu";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Select as SelectRoot,
+  SelectContent,
+  SelectItem,
+  SelectItemIndicator,
+  SelectTrigger,
+  SelectValue,
+} from "@ui-sdk/react/select";
 import { cn } from "@/lib/cn";
 
 export interface SelectOption {
@@ -25,92 +27,75 @@ interface SelectProps {
   disabled?: boolean;
   placeholder?: string;
   className?: string;
+  ref?: React.Ref<HTMLButtonElement>;
 }
 
-export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
-  (
-    {
-      id,
-      "aria-label": ariaLabel,
-      "aria-describedby": ariaDescribedBy,
-      "aria-invalid": ariaInvalid,
-      value,
-      onValueChange,
-      options,
-      disabled,
-      placeholder = "Select…",
-      className,
-    },
-    ref
-  ) => {
-    const selected = options.find((opt) => opt.value === value);
-    // The trigger's name is its label; the chosen value is exposed as its
-    // description so assistive tech announces it too (WCAG 4.1.2).
-    const valueId = React.useId();
-    const [menuNode, setMenuNode] = React.useState<HTMLDivElement | null>(null);
-    const [open, setOpen] = React.useState(false);
-    React.useEffect(() => {
-      if (!open) return;
-      const current = menuNode?.querySelector<HTMLElement>('[role="menuitemradio"][data-state="checked"]')
-        ?? menuNode?.querySelector<HTMLElement>('[role="menuitemradio"]');
-      current?.focus();
-      const frame = requestAnimationFrame(() => current?.scrollIntoView({ block: "nearest" }));
-      return () => cancelAnimationFrame(frame);
-    }, [open, menuNode]);
-
-    return (
-      <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
-        <DropdownMenuTrigger ref={ref} asChild>
-          <button
-            type="button"
-            id={id}
-            aria-label={ariaLabel}
-            aria-describedby={[ariaDescribedBy, valueId].filter(Boolean).join(" ")}
-            aria-invalid={ariaInvalid}
-            className={cn(
-              "control relative flex min-w-0 items-center justify-between gap-2 type-body text-left",
-              className
-            )}
-            disabled={disabled}
+/* A single-choice select on ui-sdk: a combobox trigger over a listbox, with
+ * typeahead, Home/End, and the chosen option placed over the trigger like a
+ * native select. The trigger is the shared `.control` (40px, input radius). */
+export function Select({
+  id,
+  "aria-label": ariaLabel,
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
+  value,
+  onValueChange,
+  options,
+  disabled,
+  placeholder = "Select…",
+  className,
+  ref,
+}: SelectProps) {
+  const items = React.useMemo(
+    () => options.map(({ value, label }) => ({ value, label })),
+    [options],
+  );
+  return (
+    <SelectRoot
+      items={items}
+      value={value ?? null}
+      onValueChange={(next) => {
+        if (typeof next === "string") onValueChange?.(next);
+      }}
+      disabled={disabled}
+      placeholder={placeholder}
+    >
+      <SelectTrigger
+        ref={ref}
+        id={id}
+        aria-label={ariaLabel}
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid || undefined}
+        className={cn(
+          "control select-trigger relative flex min-w-0 items-center justify-between gap-2 type-body text-left",
+          className,
+        )}
+      >
+        <SelectValue className="min-w-0 truncate text-text data-placeholder:text-text-muted" />
+        <ChevronDown className="select-chevron size-4 shrink-0 text-text-muted" aria-hidden />
+      </SelectTrigger>
+      <SelectContent
+        collisionPadding={8}
+        sideOffset={6}
+        className="popup-panel popup-list p-1"
+      >
+        {options.map((option) => (
+          <SelectItem
+            key={option.value}
+            value={option.value}
+            label={option.label}
+            className="popup-item relative items-start py-2 ps-8 pe-2 text-text"
           >
-            <span id={valueId} className={cn("min-w-0 truncate", !selected ? "text-text-muted" : "text-text")}>
-              {selected?.label ?? placeholder}
+            <SelectItemIndicator className="absolute start-2 top-2.5 flex size-4 items-center justify-center text-accent">
+              <Check className="size-4" aria-hidden />
+            </SelectItemIndicator>
+            <span className="flex min-w-0 flex-col">
+              <span className="type-body">{option.label}</span>
+              {option.hint && <span className="type-caption text-text-muted">{option.hint}</span>}
             </span>
-            <ChevronDown className="size-4 shrink-0 text-text-muted" aria-hidden />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          ref={setMenuNode}
-          align="start"
-          tabIndex={0}
-          regionLabel={ariaLabel ? `${ariaLabel} options` : "Selection options"}
-          className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-56 max-w-[calc(100vw-2rem)] max-h-[min(20rem,var(--radix-dropdown-menu-content-available-height))] overflow-y-auto"
-        >
-          <Menu.RadioGroup
-            value={value}
-            onValueChange={onValueChange}
-          >
-          {options.map((option) => (
-            <Menu.RadioItem
-              key={option.value}
-              value={option.value}
-              className="relative flex cursor-pointer select-none items-start gap-2 rounded-input py-2 pl-8 pr-2 text-text outline-none focus:bg-zone-9"
-            >
-              <Menu.ItemIndicator className="absolute left-2 top-2.5 flex size-4 items-center justify-center">
-                <Check className="size-4" aria-hidden />
-              </Menu.ItemIndicator>
-              <div className="flex min-w-0 flex-col">
-                <span className="type-body">{option.label}</span>
-                {option.hint && (
-                  <span className="type-caption text-text-muted">{option.hint}</span>
-                )}
-              </div>
-            </Menu.RadioItem>
-          ))}
-          </Menu.RadioGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  }
-);
-Select.displayName = "Select";
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </SelectRoot>
+  );
+}

@@ -59,12 +59,9 @@ export function OutcomeChecks({ studyId, synthetic, onChecked }: { studyId: stri
   return (
     <section className="mt-3 flex min-w-0 flex-col gap-3 break-words" aria-label="Outcome capture checks">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="type-note text-text-muted">
-            Does each declared outcome have its instrument, fields and condition
-            coverage? Checks inputs, not study validity.
-          </p>
-        </div>
+        <p className="type-note text-text-muted">
+          Check which sessions recorded the inputs each outcome needs.
+        </p>
         <div className="flex flex-wrap gap-2">
           {report && <Button size="sm" variant="ghost" onClick={download}>Download checks (.json)</Button>}
           <Button size="sm" variant="outline" disabled={busy} onClick={() => void check()}>

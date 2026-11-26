@@ -11,7 +11,7 @@ from middleware.assistant import _post_json, make_design_client, model_name
 
 from middleware import compiler, study_plan
 
-ADAPTER = "study_plan.propose+compiler.compile_moves"
+ADAPTER = "study_plan.converse+compiler.compile_moves"
 
 BRIEFS = (
     "Compare AI-assisted and unassisted Python debugging for novice developers. "
@@ -35,6 +35,7 @@ def main() -> None:
     args = parser.parse_args()
     if not args.live or make_design_client() is None:
         parser.error("Use --live with a configured model route; prompts are synthetic")
+    empty_plan = study_plan.plan_state([])
     results = []
     for selected in dict.fromkeys(args.models):
         observations = {}
@@ -58,7 +59,9 @@ def main() -> None:
             started = perf_counter()
             failure = None
             try:
-                turn = study_plan.propose(client, brief, f"compatibility-{index}")
+                turn = study_plan.converse(
+                    client, brief, f"compatibility-{index}", state=empty_plan
+                )
             except study_plan.Unreachable as error:
                 turn = None
                 failure = error.reason

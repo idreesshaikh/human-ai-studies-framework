@@ -21,6 +21,7 @@ from middleware import corpus_fetchers, corpus_scoring, paper_index, semantic_sc
 from middleware.corpus_importer import _upsert_corpus_paper
 from middleware.corpus_sources import (
     SourceFormatError,
+    canonical_ref,
     is_known,
     merge_sources,
     parse_arxiv_atom,
@@ -93,11 +94,15 @@ def _collect_arxiv(fetch, spec, since, until, max_per_query) -> list[dict]:
 
 
 def _collect_s2(fetch, query, since, until, max_per_query) -> list[dict]:
+    """
+    Bulk-search pages until ``max_per_query`` papers. The endpoint has no page-size
+    parameter (each page holds up to 1,000, newest first), so the cut is ours.
+    """
     out: list[dict] = []
     token = None
     seen = set()
     while len(out) < max_per_query:
-        payload = fetch(query, since, until, token, min(PAGE, max_per_query - len(out)))
+        payload = fetch(query, since, until, token)
         out.extend(parse_s2_bulk(payload))
         token = payload.get("token") if isinstance(payload, dict) else None
         if not token:
@@ -108,6 +113,53 @@ def _collect_s2(fetch, query, since, until, max_per_query) -> list[dict]:
     return out[:max_per_query]
 
 
+def _collect_citations(fetch, ids, since, until, per_paper) -> list[dict]:
+    """
+    Forward snowballing: papers published in the window that cite an example. A
+    failing example is logged and skipped; the job fails only if every one does.
+    """
+    out: list[dict] = []
+    failures = 0
+    for paper_id in ids:
+        try:
+            out.extend(
+                parse_s2_papers(
+                    fetch(paper_id, since, until, per_paper), source="s2-cites"
+                )
+            )
+        except Exception as exc:  # noqa: BLE001 - one example must not stop the rest
+            failures += 1
+            log.warning("citations of %s unavailable: %s", paper_id, exc)
+    if ids and failures == len(ids):
+        raise SourceFormatError(f"citations unavailable for all {len(ids)} examples")
+    return out
+
+
+def known_keys(s: Session) -> tuple[set[str], set[str]]:
+    """
+    Refs and normalised titles already in the corpus or the candidate pool. A corpus
+    row is known by its ref and by the ``arxiv:``/``doi:`` refs its identifiers imply,
+    so a seed stored as ``corpus:<slug>`` is not fetched again as ``arxiv:<id>``.
+    """
+    refs: set[str] = set()
+    titles: set[str] = set()
+    for ref, title, arxiv_id, doi in s.execute(
+        select(Paper.paper_ref, Paper.title, Paper.arxiv_id, Paper.doi).where(
+            Paper.study_id == CORPUS_STUDY_ID
+        )
+    ):
+        refs.add(ref)
+        alias = canonical_ref(arxiv_id=arxiv_id or None, doi=doi or None, s2_id=None)
+        if alias:
+            refs.add(alias)
+        titles.add(title_key(title or ""))
+    for ref, title in s.execute(select(CorpusCandidate.ref, CorpusCandidate.title)):
+        refs.add(ref)
+        titles.add(title_key(title or ""))
+    titles.discard("")
+    return refs, titles
+
+
 def refresh(
     session_factory,
     *,
@@ -115,17 +167,19 @@ def refresh(
     since: str,
     until: str,
     fetch_arxiv: Callable[[str, str, str, int, int], bytes],
-    fetch_s2: Callable[[str, str, str, str | None, int], dict],
+    fetch_s2: Callable[[str, str, str, str | None], dict],
     score_fn: Callable[[dict], float | None],
     now: Callable[[], str],
     dry_run: bool = False,
     fetch_recs: Callable[[list[str], list[str], int], list[dict]] | None = None,
+    fetch_citations: Callable[[str, str, str, int], list[dict]] | None = None,
 ) -> dict:
     """
     Fetch new papers from each configured source and store the unseen ones as
     candidates. Besides the keyword queries, ``recommendations`` asks Semantic
     Scholar for papers like the human-chosen examples and unlike the rejected
-    ones, so discovery follows the field even when its vocabulary moves.
+    ones, and ``citations`` collects papers published in the window that cite
+    the examples, so discovery follows the field even when its vocabulary moves.
     """
     max_per_query = int(config.get("maxPerQuery", 100))
     with session_factory() as s:
@@ -140,19 +194,7 @@ def refresh(
             except IntegrityError as exc:
                 s.rollback()
                 raise RefreshInProgress("another refresh claimed the run lock") from exc
-        known_refs = {
-            r
-            for (r,) in s.execute(
-                select(Paper.paper_ref).where(Paper.study_id == CORPUS_STUDY_ID)
-            )
-        }
-        known_refs |= {r for (r,) in s.execute(select(CorpusCandidate.ref))}
-        known_titles = {
-            title_key(t)
-            for (t,) in s.execute(
-                select(Paper.title).where(Paper.study_id == CORPUS_STUDY_ID)
-            )
-        } | {title_key(t) for (t,) in s.execute(select(CorpusCandidate.title))}
+        known_refs, known_titles = known_keys(s)
 
         fetched: list[dict] = []
         errors: list[dict] = []
@@ -172,18 +214,33 @@ def refresh(
             for q in config.get("semanticScholar", [])
         ]
         rec_limit = int(config.get("recommendations", 0) or 0)
-        if rec_limit and fetch_recs is not None:
-            positive, negative = example_s2_ids(s)
-            if positive:
-                jobs.append(
-                    (
-                        "s2-recs",
-                        f"{len(positive)} examples, {len(negative)} counter-examples",
-                        lambda: parse_s2_papers(
-                            fetch_recs(positive, negative, rec_limit), source="s2-recs"
-                        ),
-                    )
+        cite_examples = int(config.get("citations", 0) or 0)
+        positive, negative = (
+            example_s2_ids(s)
+            if (rec_limit and fetch_recs) or (cite_examples and fetch_citations)
+            else ([], [])
+        )
+        if cite_examples and fetch_citations is not None and positive:
+            chosen = positive[:cite_examples]
+            jobs.append(
+                (
+                    "s2-cites",
+                    f"new citations of {len(chosen)} examples",
+                    lambda: _collect_citations(
+                        fetch_citations, chosen, since, until, max_per_query
+                    ),
                 )
+            )
+        if rec_limit and fetch_recs is not None and positive:
+            jobs.append(
+                (
+                    "s2-recs",
+                    f"{len(positive)} examples, {len(negative)} counter-examples",
+                    lambda: parse_s2_papers(
+                        fetch_recs(positive, negative, rec_limit), source="s2-recs"
+                    ),
+                )
+            )
         for source, label, job in jobs:
             try:
                 fetched.extend(job())
@@ -298,30 +355,88 @@ def ensure_not_running(
         raise RefreshInProgress(f"refresh run {busy} is still running")
 
 
+DEFAULT_INTERVAL_HOURS = 24.0
+# A run that failed outright (every source down) is retried sooner than the
+# regular cadence, but not so soon that an outage turns into a request loop.
+FAILED_RETRY_HOURS = 2.0
+
+
+def seconds_until_due(
+    session_factory, *, interval_s: float, now: Callable[[], datetime] | None = None
+) -> float:
+    """
+    Seconds until the next refresh is due, from the newest finished run in the
+    database: a restart resumes the cadence instead of refreshing on every boot.
+    """
+    current = (now or (lambda: datetime.now(UTC)))()
+    with session_factory() as s:
+        return due_in_session(s, interval_s=interval_s, now=current)
+
+
+def due_in_session(s: Session, *, interval_s: float, now: datetime) -> float:
+    run = s.scalar(
+        select(CorpusRefreshRun)
+        .where(CorpusRefreshRun.finished_at.is_not(None))
+        .order_by(CorpusRefreshRun.id.desc())
+        .limit(1)
+    )
+    current = now if now.tzinfo else now.replace(tzinfo=UTC)
+    if run is None:
+        return 0.0
+    try:
+        finished = datetime.fromisoformat(run.finished_at.replace("Z", "+00:00"))
+    except ValueError:
+        return 0.0
+    if finished.tzinfo is None:
+        finished = finished.replace(tzinfo=UTC)
+    wait = interval_s
+    if run.status == "failed":
+        wait = min(interval_s, FAILED_RETRY_HOURS * 3600.0)
+    return max(0.0, (finished - current).total_seconds() + wait)
+
+
 def run_scheduler(
     stop: threading.Event,
     *,
     interval_s: float,
     run: Callable[[], object],
     first_delay_s: float = 60.0,
+    due_in: Callable[[], float] | None = None,
 ) -> None:
     """
     Call ``run`` every ``interval_s`` until ``stop`` is set; a failing run never
-    ends the loop.
+    ends the loop. With ``due_in`` (seconds until the next run is due, read from
+    the run history) a run happens only once it is due, so restarts keep the
+    cadence.
     """
-    if stop.wait(first_delay_s):
-        return
-    while not stop.is_set():
+    retry_s = min(interval_s, FAILED_RETRY_HOURS * 3600.0)
+    delay = first_delay_s
+    while not stop.wait(delay):
+        if due_in is not None:
+            try:
+                wait = due_in()
+            except Exception:
+                log.exception("could not read the refresh history; running now")
+                wait = 0.0
+            if wait > 0:
+                delay = min(wait, interval_s)
+                log.info("next corpus refresh in %.1f h", delay / 3600.0)
+                continue
         try:
             run()
         except Exception:
             log.exception("scheduled corpus refresh failed")
-        if stop.wait(interval_s):
-            return
+        # A recorded failure can be due before the regular interval. Check the
+        # run history by then even if the process stays up between attempts.
+        delay = retry_s if due_in is not None else interval_s
 
 
 def start_scheduler(
-    *, interval_hours: float, run: Callable[[], object], first_delay_s: float = 60.0
+    *,
+    interval_hours: float,
+    run: Callable[[], object],
+    first_delay_s: float = 60.0,
+    due_in: Callable[[], float] | None = None,
 ):
     """Start the daemon thread; returns (thread, stop_event)."""
     if not math.isfinite(interval_hours) or interval_hours <= 0:
@@ -334,12 +449,25 @@ def start_scheduler(
             "interval_s": interval_hours * 3600.0,
             "run": run,
             "first_delay_s": first_delay_s,
+            "due_in": due_in,
         },
         name="phoenix-corpus-refresh",
         daemon=True,
     )
     thread.start()
     return thread, stop
+
+
+def schedule_status(s: Session, *, now: datetime, hours: float | None) -> dict:
+    """Whether this server refreshes on a schedule, how often, and when next."""
+    if hours is None:
+        return {"enabled": False, "intervalHours": None, "nextRunInHours": None}
+    due = due_in_session(s, interval_s=hours * 3600.0, now=now)
+    return {
+        "enabled": True,
+        "intervalHours": hours,
+        "nextRunInHours": round(due / 3600.0, 2),
+    }
 
 
 DEFAULT_DAYS = 30
@@ -391,11 +519,15 @@ def load_config(path: Path) -> dict:
     recommendations = data.get("recommendations", 0)
     if not isinstance(recommendations, int) or not 0 <= recommendations <= 500:
         raise ValueError("recommendations must be an integer from 0 (off) to 500")
+    citations = data.get("citations", 0)
+    if not isinstance(citations, int) or not 0 <= citations <= 100:
+        raise ValueError("citations must be an integer from 0 (off) to 100")
     return {
         "arxiv": arxiv,
         "semanticScholar": s2,
         "maxPerQuery": max_per_query,
         "recommendations": recommendations,
+        "citations": citations,
         "curation": curation_config(data.get("curation", {})),
     }
 
@@ -480,31 +612,37 @@ def human_examples(s: Session) -> tuple[list[str], list[str]]:
 
 
 def example_s2_ids(s: Session, *, cap: int = 100) -> tuple[list[str], list[str]]:
-    """Semantic Scholar ids of the human examples, newest first, capped."""
+    """
+    Ids Semantic Scholar resolves the human examples by, newest first, capped: the
+    stored S2 id, else the ``ARXIV:``/``DOI:`` form, so a corpus that no curation run
+    has re-checked yet still has examples to recommend and snowball from.
+    """
     positive, negative = human_examples(s)
 
     def ids(refs: list[str]) -> list[str]:
         if not refs:
             return []
-        found = dict(
-            s.execute(
-                select(Paper.paper_ref, Paper.s2_id).where(
-                    Paper.study_id == CORPUS_STUDY_ID, Paper.paper_ref.in_(refs)
-                )
-            ).all()
-        )
-        found.update(
-            {
-                r: i
-                for r, i in s.execute(
-                    select(CorpusCandidate.ref, CorpusCandidate.s2_id).where(
-                        CorpusCandidate.ref.in_(refs)
-                    )
-                ).all()
-                if i and not found.get(r)
-            }
-        )
-        return [found[r] for r in refs if found.get(r)][:cap]
+        found: dict[str, str] = {}
+        for ref, s2_id, doi, arxiv_id in s.execute(
+            select(Paper.paper_ref, Paper.s2_id, Paper.doi, Paper.arxiv_id).where(
+                Paper.study_id == CORPUS_STUDY_ID, Paper.paper_ref.in_(refs)
+            )
+        ):
+            found[ref] = semantic_scholar.lookup_id(s2_id, doi, arxiv_id)
+        for ref, s2_id, doi, arxiv_id in s.execute(
+            select(
+                CorpusCandidate.ref,
+                CorpusCandidate.s2_id,
+                CorpusCandidate.doi,
+                CorpusCandidate.arxiv_id,
+            ).where(CorpusCandidate.ref.in_(refs))
+        ):
+            if not found.get(ref):
+                found[ref] = semantic_scholar.lookup_id(s2_id, doi, arxiv_id)
+        for ref in refs:
+            if not found.get(ref) and ref.startswith(("arxiv:", "doi:", "s2:")):
+                found[ref] = semantic_scholar.s2_id_for_ref(ref)
+        return list(dict.fromkeys(found[r] for r in refs if found.get(r)))[:cap]
 
     return ids(positive), ids(negative)
 
@@ -540,6 +678,11 @@ def run_once(
         fetch_recs=lambda pos, neg, n: semantic_scholar.fetch_recommendations(
             pos, neg, fields=corpus_fetchers.S2_FIELDS, limit=n
         ),
+        fetch_citations=lambda paper_id, since, until, n: (
+            semantic_scholar.fetch_citations(
+                paper_id, since=since, until=until, limit=n
+            )
+        ),
         score_fn=lambda cand: corpus_scoring.candidate_score(cand, today.year),
         now=now,
         dry_run=dry_run,
@@ -557,12 +700,44 @@ def last_run_summary(s: Session, *, today: date) -> dict | None:
     if run is None:
         return None
     finished = datetime.fromisoformat(run.finished_at.replace("Z", "+00:00")).date()
+    outcome = dict.fromkeys(CANDIDATE_STATUSES, 0)
+    for status, n in s.execute(
+        select(CorpusCandidate.status, func.count())
+        .where(CorpusCandidate.run_id == run.id)
+        .group_by(CorpusCandidate.status)
+    ):
+        outcome[status] = n
+    added = [
+        {"ref": ref, "title": title, "status": status}
+        for ref, title, status in s.execute(
+            select(CorpusCandidate.ref, CorpusCandidate.title, CorpusCandidate.status)
+            .where(CorpusCandidate.run_id == run.id)
+            .order_by(
+                CorpusCandidate.relevance.desc().nulls_last(),
+                CorpusCandidate.score.desc().nulls_last(),
+                CorpusCandidate.id,
+            )
+            .limit(10)
+        )
+    ]
     return {
+        "startedAt": run.started_at,
         "finishedAt": run.finished_at,
         "ageDays": (today - finished).days,
         "status": run.status,
+        "since": run.since,
+        "until": run.until,
+        "fetched": run.fetched,
+        "duplicates": run.duplicates,
         "newCandidates": run.new_candidates,
+        # What became of this run's candidates since: admitted to the corpus,
+        # waiting for review, dismissed or turned down.
+        "admitted": outcome["accepted"],
+        "waiting": outcome["new"],
+        "dismissed": outcome["dismissed"] + outcome["rejected"],
+        "added": added,
         "errors": len(run.errors or []),
+        "errorSources": sorted({e.get("source", "") for e in run.errors or []}),
     }
 
 

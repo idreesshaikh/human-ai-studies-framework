@@ -42,7 +42,7 @@ for a deployment that participants will reach. [Access and capture](../SECURITY.
 | `MIDDLEWARE_API_ONLY` | Set to `1` to run without a built frontend |
 | `MIDDLEWARE_AUTH` | `none` (default, single user) or `token` |
 | `MIDDLEWARE_TOKEN` | Shared bearer token for token mode |
-| `LLM_API_KEY` | Enables the design conversation and model-assisted matching |
+| `LLM_API_KEY` | Enables the design conversation; on Mistral's API it also screens refresh candidates with `mistral-embed`, which has its own quota |
 | `LLM_BASE_URL` | Chat-completions API base or full URL; defaults to Mistral's API; local servers need no key |
 | `LLM_MODEL` | Shared model (default `ministral-14b-latest`) |
 | `LLM_DESIGN_MODEL` | Optional design-only model override |
@@ -51,10 +51,11 @@ for a deployment that participants will reach. [Access and capture](../SECURITY.
 | `LLM_MAX_RETRIES` | Retries for 429, transient server and connection failures; default 2, range 0–5 |
 | `LLM_ALLOW_HTTP` | Set to 1 to allow plain HTTP to a non-local host |
 | `MIDDLEWARE_CORPUS_BOOTSTRAP` | Set to 0 to disable background corpus import |
-| `MIDDLEWARE_REFRESH_INTERVAL_H` | Optional interval for scheduled paper refreshes; unset disables the scheduler |
+| `MIDDLEWARE_REFRESH_INTERVAL_H` | Scheduled paper refresh interval in hours, at least 1. Defaults to 24 when corpus bootstrapping is enabled. Set to `off` for manual refreshes |
 | `MIDDLEWARE_REFRESH_QUERIES` | Optional JSON file with refresh queries |
 | `MIDDLEWARE_CONTACT_EMAIL` | Contact address in outbound arXiv requests |
-| `MIDDLEWARE_S2_API_KEY` | Optional Semantic Scholar key for higher rate limits |
+| `MIDDLEWARE_S2_API_KEY` | Optional Semantic Scholar key; requests are paced to one per second across all endpoints |
+| `MIDDLEWARE_LIVE_SEARCH` | Set to `0` to stop design-chat turns from searching Semantic Scholar when the local library has little on a topic. The search sends keywords from the conversation, never the full message |
 
 ## Model settings and troubleshooting
 
@@ -77,11 +78,14 @@ Restart StudyLoop after changing the settings. If port 8000 is in use, run
 
 Adding or searching for papers by arXiv id or DOI makes outbound requests to the
 Semantic Scholar API. Results are cached in the database, so repeat lookups of the
-same paper work offline.
+same paper work offline. When the corpus answers a paper-match query weakly, the
+match route also asks Semantic Scholar's relevance search and waits at most 2.5
+seconds; papers it finds join the corpus. After a rate limit or an outage, live
+search pauses for one to two minutes and matching uses the corpus alone.
 
 ## Commands
 
-`uv run python -m middleware <command>`:
+`uv run --no-sync --env-file .env.local python -m middleware <command>`:
 
 | Command | What it does |
 | --- | --- |
@@ -92,6 +96,7 @@ same paper work offline.
 | `corpus-curate --dry-run` | Preview literature curation using stored metadata; makes no network calls or changes |
 | `corpus-curate` | Refresh literature metadata and apply curation decisions |
 | `corpus-review` | List literature awaiting review |
+| `corpus-refresh`, `corpus-candidates`, `corpus-decide` | Collect recent papers as candidates (without screening them), list the candidates, or record a decision |
 | `templates` | Validate and list the template registry |
 | `seed-example` | Add one labelled synthetic example study (protocol, plan, links, simulated sessions); idempotent |
 
@@ -99,8 +104,9 @@ The default access mode is single-user. To require a shared token, set
 `MIDDLEWARE_AUTH=token` and `MIDDLEWARE_TOKEN`. See the
 [security policy](../SECURITY.md).
 
-Scheduled refreshes collect candidates; they do not run curation. Review the
-curation preview before applying it, because curation can hide papers from search.
+Scheduled refreshes collect and screen candidates. Screening can admit or dismiss
+a candidate automatically and leaves uncertain papers for review. Use
+`corpus-curate --dry-run` to preview changes to papers already in the corpus.
 
 ## Data flow
 

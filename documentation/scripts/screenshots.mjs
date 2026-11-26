@@ -1,7 +1,7 @@
-// Capture the PHOENIX screenshots used in the user guide.
+// Capture the PHOENIX screenshots used in the README and the user guide.
 //
 // Starts a disposable synthetic demo (scripts/run_demo.py), opens each screen
-// in Chromium in the light and the dark theme, and writes WebP files to
+// in Chromium in the light theme, and writes <name>.webp files to
 // documentation/docs/assets/screens/. The demo deletes its data on exit.
 //
 // Needs the built web app and the platform's Playwright browser:
@@ -47,6 +47,12 @@ const SHOTS = [
       const closed = page.getByRole("button", { name: "Protocol draft", exact: true });
       if (await closed.isVisible()) await closed.click();
       await page.getByRole("button", { name: "Hide protocol draft" }).waitFor();
+      // Show the latest reply and the plan card waiting on the researcher.
+      await page.getByRole("button", { name: "Accept", exact: true }).first().waitFor();
+      await page
+        .getByRole("region", { name: "Conversation" })
+        .evaluate((thread) => thread.scrollTo({ top: thread.scrollHeight }));
+      await page.waitForTimeout(300);
     },
   },
   {
@@ -135,40 +141,39 @@ try {
   await waitForDemo(base, demo);
   mkdirSync(OUT, { recursive: true });
   browser = await chromium.launch();
-  for (const theme of ["light", "dark"]) {
-    const context = await browser.newContext({
-      viewport: VIEWPORT,
-      deviceScaleFactor: SCALE,
-      reducedMotion: "reduce",
-    });
-    await context.addInitScript(
-      (value) => localStorage.setItem("platform-theme", value),
-      theme,
-    );
-    const page = await context.newPage();
+  // Light theme only: the README and the guide use one image per screen.
+  const context = await browser.newContext({
+    viewport: VIEWPORT,
+    deviceScaleFactor: SCALE,
+    reducedMotion: "reduce",
+  });
+  await context.addInitScript(
+    (value) => localStorage.setItem("platform-theme", value),
+    "light",
+  );
+  const page = await context.newPage();
 
-    // Fold the app's navigation once so every shot gives the screen its width.
-    await page.goto(`${base}/home`, { waitUntil: "networkidle" });
-    await click("Collapse navigation")(page);
+  // Fold the app's navigation once so every shot gives the screen its width.
+  await page.goto(`${base}/home`, { waitUntil: "networkidle" });
+  await click("Collapse navigation")(page);
 
-    for (const shot of SHOTS) {
-      if (only.size && !only.has(shot.name)) continue;
-      await page.goto(base + shot.path, { waitUntil: "networkidle" });
-      if (shot.heading) await page.getByRole("heading", { name: shot.heading, exact: true }).first().waitFor();
-      if (shot.region) await page.getByRole("region", { name: shot.region, exact: true }).waitFor();
-      await page.waitForTimeout(400);
-      if (shot.prepare) await shot.prepare(page);
-      const target = shot.dialog
-        ? page.getByRole("dialog").first()
-        : shot.clip?.(page);
-      const file = join(OUT, `${shot.name}-${theme}.webp`);
-      await capture(page, file, shot.dialog ? undefined : target);
-      console.log(`wrote ${file.slice(ROOT.length + 1)}`);
-      // Close any dialog the shot opened before the next route.
-      if (shot.dialog) await page.keyboard.press("Escape");
-    }
-    await context.close();
+  for (const shot of SHOTS) {
+    if (only.size && !only.has(shot.name)) continue;
+    await page.goto(base + shot.path, { waitUntil: "networkidle" });
+    if (shot.heading) await page.getByRole("heading", { name: shot.heading, exact: true }).first().waitFor();
+    if (shot.region) await page.getByRole("region", { name: shot.region, exact: true }).waitFor();
+    await page.waitForTimeout(400);
+    if (shot.prepare) await shot.prepare(page);
+    const target = shot.dialog
+      ? page.getByRole("dialog").first()
+      : shot.clip?.(page);
+    const file = join(OUT, `${shot.name}.webp`);
+    await capture(page, file, shot.dialog ? undefined : target);
+    console.log(`wrote ${file.slice(ROOT.length + 1)}`);
+    // Close any dialog the shot opened before the next route.
+    if (shot.dialog) await page.keyboard.press("Escape");
   }
+  await context.close();
 } catch (error) {
   console.error(error.message);
   if (demoErrors) console.error(demoErrors);

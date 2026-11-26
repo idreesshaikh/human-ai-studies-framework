@@ -272,20 +272,21 @@ def register(app: FastAPI, deps: ApiDeps):
             not isinstance(seed, dict)
             or not isinstance(seed.get("study"), dict)
             or not isinstance(seed.get("researchQuestions"), list)
+            or not all(isinstance(rq, dict) for rq in seed["researchQuestions"])
         ):
             raise HTTPException(
                 422,
                 "protocol must be a compiled protocol: an object with "
                 "study and researchQuestions",
             )
-        s.add(
-            Study(
-                id=study_id,
-                project_id=proj.id,
-                protocol_version="",
-                data_path="",
-            )
+        study = Study(
+            id=study_id,
+            project_id=proj.id,
+            protocol_version="",
+            data_path="",
+            name=name or None,
         )
+        s.add(study)
         if seed is not None:
             # A template carries an archetype's example id/title so it can be
             # instantiated on its own. Once it becomes this study's draft those
@@ -296,15 +297,11 @@ def register(app: FastAPI, deps: ApiDeps):
             seed = copy.deepcopy(seed)
             seed.setdefault("study", {})["id"] = study_id
             seed["study"]["title"] = name
-            s.add(
-                ProtocolDraftRow(
-                    study_id=study_id,
-                    yaml=yaml.safe_dump(
-                        seed, sort_keys=False, default_flow_style=False
-                    ),
-                    compilation_id="",
-                    updated_at=deps.now(),
-                )
+            # The template becomes the draft's starting point, not the study's
+            # protocol: the researcher reviews and applies it in Setup, which
+            # records the approval, before it can plan, recruit or collect.
+            study.seed_protocol = yaml.safe_dump(
+                seed, sort_keys=False, default_flow_style=False
             )
         s.flush()
         return {"id": study_id}

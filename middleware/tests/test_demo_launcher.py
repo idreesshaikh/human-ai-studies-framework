@@ -2,7 +2,10 @@
 
 import importlib.util
 import os
+import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("run_demo", ROOT / "scripts/run_demo.py")
@@ -33,7 +36,7 @@ def test_demo_overrides_storage_and_disables_external_services(tmp_path, monkeyp
     assert env["MIDDLEWARE_PROTOCOL"] == ""
     assert env["MIDDLEWARE_AUTH"] == "none"
     assert env["MIDDLEWARE_CORPUS_BOOTSTRAP"] == "0"
-    assert env["MIDDLEWARE_REFRESH_INTERVAL_H"] == ""
+    assert env["MIDDLEWARE_REFRESH_INTERVAL_H"] == "off"
     assert not any(key.startswith("LLM_") for key in env)
     assert "MIDDLEWARE_TOKEN" not in env
     assert Path(env["MIDDLEWARE_WEB"]) == ROOT / "platform/dist"
@@ -49,6 +52,7 @@ def test_live_demo_keeps_only_the_model_route_and_loads_literature(
         "LLM_MODEL": "synthetic-model",
         "MIDDLEWARE_AUTH": "token",
         "MIDDLEWARE_DB": "/not-the-demo/participants.sqlite3",
+        "MIDDLEWARE_REFRESH_INTERVAL_H": "1",
         "DATABASE_URL": "postgresql://example.invalid/participant-data",
     }.items():
         monkeypatch.setenv(key, value)
@@ -56,19 +60,28 @@ def test_live_demo_keeps_only_the_model_route_and_loads_literature(
     assert env["LLM_API_KEY"] == "synthetic-provider-key"
     assert env["LLM_MODEL"] == "synthetic-model"
     assert env["MIDDLEWARE_CORPUS_BOOTSTRAP"] == "1"
+    assert env["MIDDLEWARE_REFRESH_INTERVAL_H"] == "off"
     assert env["MIDDLEWARE_AUTH"] == "none"
     assert env["MIDDLEWARE_DB"] == str(tmp_path / "demo.sqlite3")
     assert env["DATABASE_URL"] == ""
 
 
-def test_live_demo_needs_a_model_route(monkeypatch):
+@pytest.mark.parametrize(
+    ("base_url", "api_key"),
+    [("", ""), ("https://localhost.example.invalid/v1", ""), ("not-a-url", "key")],
+)
+def test_live_demo_rejects_an_unusable_model_route(
+    monkeypatch, capsys, base_url, api_key
+):
     for key in list(os.environ):
         if key.startswith("LLM_"):
             monkeypatch.delenv(key)
-    assert not launcher.has_model_route(os.environ)
-    monkeypatch.setenv("LLM_API_KEY", "k")
-    assert launcher.has_model_route(os.environ)
-    monkeypatch.delenv("LLM_API_KEY")
-    # A local OpenAI-compatible server needs no key.
-    monkeypatch.setenv("LLM_BASE_URL", "http://localhost:11434/v1")
-    assert launcher.has_model_route(os.environ)
+    monkeypatch.setenv("LLM_BASE_URL", base_url)
+    monkeypatch.setenv("LLM_API_KEY", api_key)
+    monkeypatch.setattr(sys, "argv", ["run_demo.py", "--live"])
+
+    with pytest.raises(SystemExit) as error:
+        launcher.main()
+
+    assert error.value.code == 2
+    assert "--live needs a model provider" in capsys.readouterr().err

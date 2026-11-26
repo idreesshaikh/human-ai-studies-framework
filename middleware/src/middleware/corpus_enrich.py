@@ -18,12 +18,9 @@ ENRICH_FIELDS = "abstract,externalIds"
 
 def s2_id_for_row(row: Paper) -> str:
     """The id S2 can resolve this corpus row by, or "" if there is none."""
-    if row.s2_id:
-        return row.s2_id
-    if row.doi:
-        return f"DOI:{row.doi}"
-    if row.arxiv_id:
-        return f"ARXIV:{row.arxiv_id}"
+    found = semantic_scholar.lookup_id(row.s2_id, row.doi, row.arxiv_id)
+    if found:
+        return found
     ref = row.paper_ref or ""
     if ref.startswith(("doi:", "arxiv:", "s2:")):
         return semantic_scholar.s2_id_for_ref(ref)
@@ -59,7 +56,7 @@ def enrich_abstracts(
     *,
     limit: int | None = None,
     batch_size: int = semantic_scholar.BATCH_MAX_IDS,
-    post=semantic_scholar.post_json,
+    post=None,
 ) -> dict:
     """Backfill missing abstracts from S2, in batches."""
     factory = make_session_factory(db_url)
@@ -122,17 +119,14 @@ def enrich_abstracts(
 def enrichment_status_for_session(s: Session) -> dict:
     """How much of the corpus carries a real abstract (the honest counter)."""
     total = s.scalar(
-        select(func.count())
-        .select_from(Paper)
-        .where(Paper.study_id == CORPUS_STUDY_ID)
+        select(func.count()).select_from(Paper).where(Paper.study_id == CORPUS_STUDY_ID)
     )
     with_abstract = s.scalar(
         select(func.count())
         .select_from(Paper)
         .where(
             Paper.study_id == CORPUS_STUDY_ID,
-            func.length(func.coalesce(Paper.abstract, ""))
-            >= MIN_REAL_ABSTRACT_CHARS,
+            func.length(func.coalesce(Paper.abstract, "")) >= MIN_REAL_ABSTRACT_CHARS,
         )
     )
     return {

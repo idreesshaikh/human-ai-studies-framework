@@ -12,10 +12,15 @@ from middleware.routes.deps import ApiDeps
 def _summary(
     study: Study, project: Project, role: str, deps: ApiDeps, s: Session
 ) -> dict:
+    protocol = deps.resolve_study_protocol(s, study.id)
+    title = ((protocol or {}).get("study") or {}).get("title")
     return {
         "id": study.id,
+        # The name typed at creation; older studies fall back to the applied
+        # protocol's title, and the client to the id as words.
+        "name": study.name or (title if isinstance(title, str) else "") or "",
         "projectSlug": project.slug,
-        "hasProtocol": deps.resolve_study_protocol(s, study.id) is not None,
+        "hasProtocol": protocol is not None,
         "role": role,
     }
 
@@ -36,8 +41,7 @@ def register(app: FastAPI, deps: ApiDeps) -> None:
             .where(Membership.identity_sub == identity.sub)
         ).all()
         return [
-            _summary(study, project, role, deps, s)
-            for study, project, role in rows
+            _summary(study, project, role, deps, s) for study, project, role in rows
         ]
 
     @app.get("/studies/{study_id}/summary")

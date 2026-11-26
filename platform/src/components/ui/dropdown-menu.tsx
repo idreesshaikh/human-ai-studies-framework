@@ -1,49 +1,71 @@
 import * as React from "react";
-import * as Menu from "@radix-ui/react-dropdown-menu";
+import {
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuSeparator,
+  MenuTrigger,
+} from "@ui-sdk/react/menu";
 import { cn } from "@/lib/cn";
+import { asChildRender } from "@/components/ui/as-child";
 
-/* Dropdown menu built on Radix (keyboard nav, typeahead, ARIA). */
-export const DropdownMenu = Menu.Root;
-export const DropdownMenuTrigger = Menu.Trigger;
+/* Dropdown menu on ui-sdk (top layer, roving focus, typeahead, ARIA). */
+export function DropdownMenu({ children }: { children?: React.ReactNode }) {
+  return <Menu>{children}</Menu>;
+}
 
-export const DropdownMenuContent = React.forwardRef<
-  React.ElementRef<typeof Menu.Content>,
-  React.ComponentPropsWithoutRef<typeof Menu.Content> & { regionLabel?: string }
->(({ className, sideOffset = 6, regionLabel, ...props }, ref) => {
-  const content = <Menu.Content
-      ref={ref}
-      sideOffset={sideOffset}
-      className={cn(
-        "z-50 min-w-44 rounded-card border border-border bg-surface-raised p-1 shadow-lifted",
-        "duration-fast data-[state=open]:animate-in data-[state=open]:fade-in",
-        className,
-      )}
-      {...props}
-    />;
+export function DropdownMenuTrigger({
+  asChild,
+  children,
+  ...props
+}: Omit<React.ComponentProps<"button">, "children"> & { asChild?: boolean; children?: React.ReactNode }) {
+  return <MenuTrigger {...props} {...asChildRender(asChild, children)} />;
+}
+
+export function DropdownMenuContent({
+  className,
+  align = "start",
+  sideOffset = 6,
+  ...props
+}: Omit<React.ComponentProps<"div">, "children"> & {
+  children?: React.ReactNode;
+  align?: "start" | "center" | "end";
+  sideOffset?: number;
+}) {
   return (
-    <Menu.Portal>
-      {regionLabel ? <div role="region" aria-label={regionLabel}>{content}</div> : content}
-    </Menu.Portal>
+    <MenuContent
+      align={align}
+      sideOffset={sideOffset}
+      collisionPadding={8}
+      className={cn("popup-panel min-w-44 p-1", className)}
+      {...props}
+    />
   );
-});
-DropdownMenuContent.displayName = "DropdownMenuContent";
+}
 
-export const DropdownMenuItem = React.forwardRef<
-  React.ElementRef<typeof Menu.Item>,
-  React.ComponentPropsWithoutRef<typeof Menu.Item> & { destructive?: boolean }
->(({ className, destructive, ...props }, ref) => (
-  <Menu.Item
-    ref={ref}
-    className={cn(
-      "type-label flex cursor-default select-none items-center gap-2 rounded-input px-2 py-1.5 outline-none",
-      "focus:bg-zone-9 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-      destructive ? "text-critical" : "text-text",
-      className,
-    )}
-    {...props}
-  />
-));
-DropdownMenuItem.displayName = "DropdownMenuItem";
+export function DropdownMenuItem({
+  className,
+  destructive,
+  asChild,
+  children,
+  onSelect,
+  ...props
+}: Omit<React.ComponentProps<"div">, "children" | "onSelect"> & {
+  children?: React.ReactNode;
+  destructive?: boolean;
+  asChild?: boolean;
+  onSelect?: (event: Event) => unknown;
+}) {
+  return (
+    <MenuItem
+      destructive={destructive}
+      onSelect={onSelect}
+      className={cn("popup-item type-label", destructive ? "text-critical" : "text-text", className)}
+      {...props}
+      {...asChildRender(asChild, children)}
+    />
+  );
+}
 
 export const DropdownMenuLabel = ({
   className,
@@ -52,6 +74,4 @@ export const DropdownMenuLabel = ({
   <div className={cn("type-caption px-2 py-1.5 text-text-muted", className)} {...props} />
 );
 
-export const DropdownMenuSeparator = () => (
-  <Menu.Separator className="my-1 h-px bg-border" />
-);
+export const DropdownMenuSeparator = () => <MenuSeparator className="-mx-1 my-1 h-px bg-border" />;

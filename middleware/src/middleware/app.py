@@ -4,6 +4,7 @@ import json
 import logging
 import math
 import os
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
@@ -33,6 +34,7 @@ from middleware import (
     compiler,
     corpus_importer,
     corpus_refresh,
+    corpus_screen,
 )
 from middleware.db import (
     ConversationTurn,
@@ -52,6 +54,7 @@ from middleware.route_helpers import (
     _capture_payload,
     _ensure_study_row,
     _ProtocolCheck,
+    draft_base_yaml,
 )
 from middleware.route_helpers import (
     _slug_from_text as _slug_from_text,
@@ -73,6 +76,41 @@ from middleware.routes.deps import ApiDeps
 from middleware.settings import Settings
 
 log = logging.getLogger(__name__)
+
+_REFRESH_OFF = {"0", "off", "false", "no"}
+# Each refresh makes many paced Semantic Scholar and arXiv requests; more often
+# than hourly would be near-continuous traffic for papers that rarely change.
+_REFRESH_MIN_HOURS = 1.0
+
+
+def _refresh_interval_hours(raw: str, *, default: float | None) -> float | None:
+    """
+    ``MIDDLEWARE_REFRESH_INTERVAL_H`` as hours between corpus refreshes, or None for
+    no scheduler. Unset means ``default`` (24 h when the server bootstraps the
+    corpus, off for disposable test databases); ``0``/``off`` disables it.
+    """
+    value = raw.strip()
+    if not value:
+        return default
+    if value.lower() in _REFRESH_OFF:
+        log.warning("MIDDLEWARE_REFRESH_INTERVAL_H=%r: scheduled refresh is off", raw)
+        return None
+    try:
+        hours = float(value)
+        if not math.isfinite(hours) or hours <= 0:
+            raise ValueError("must be a positive number of hours")
+    except ValueError as exc:
+        log.warning("MIDDLEWARE_REFRESH_INTERVAL_H=%r ignored: %s", raw, exc)
+        return default
+    if hours < _REFRESH_MIN_HOURS:
+        log.warning(
+            "MIDDLEWARE_REFRESH_INTERVAL_H=%r is below the %g h minimum; using %g h",
+            raw,
+            _REFRESH_MIN_HOURS,
+            _REFRESH_MIN_HOURS,
+        )
+        return _REFRESH_MIN_HOURS
+    return hours
 
 
 def create_app(settings: Settings | None = None, clock: Clock | None = None) -> FastAPI:
@@ -115,8 +153,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         """
         import yaml
 
-        from middleware.db import ProtocolDraftRow
-
         draft = s.get(ProtocolDraftRow, study_id)
         if draft is not None and draft.yaml:
             return yaml.safe_load(draft.yaml)
@@ -128,22 +164,6 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         with session_factory() as s:
             _ensure_study_row(s, check.study_id, protocol_doc)
             s.commit()
-
-    app = FastAPI(title="Study ingestion middleware", version="0.1.0")
-
-    @app.exception_handler(RequestValidationError)
-    async def invalid_request(_request: Request, exc: RequestValidationError):
-        # Echoing raw input can itself fail JSON serialization (unpaired
-        # surrogates, NaN/Infinity). Keep the useful field and error explanation.
-        detail = [
-            {key: error[key] for key in ("type", "loc", "msg") if key in error}
-            for error in exc.errors()
-        ]
-        return Response(
-            json.dumps({"detail": detail}),
-            status_code=422,
-            media_type="application/json",
-        )
 
     # The repository ships the full corpus, so a fresh local database should not
     # silently degrade every grounded template into "seen in 0 papers". Import it in
@@ -161,30 +181,59 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     if should_bootstrap:
         corpus_importer.start_background_import(settings.db_url, session_factory)
 
-    refresh_hours = os.environ.get("MIDDLEWARE_REFRESH_INTERVAL_H", "").strip()
-    if refresh_hours:
-        try:
-            hours = float(refresh_hours)
-            if not math.isfinite(hours) or hours <= 0:
-                raise ValueError("must be positive")
-        except ValueError as exc:
-            log.warning(
-                "MIDDLEWARE_REFRESH_INTERVAL_H=%r ignored: %s", refresh_hours, exc
-            )
-        else:
-            # Scheduled refresh only gathers candidates; curation is an explicit
-            # operation because it can change which existing papers are searchable.
-            corpus_refresh.start_scheduler(
+    hours = _refresh_interval_hours(
+        os.environ.get("MIDDLEWARE_REFRESH_INTERVAL_H", ""),
+        default=corpus_refresh.DEFAULT_INTERVAL_HOURS if should_bootstrap else None,
+    )
+    queries = os.environ.get("MIDDLEWARE_REFRESH_QUERIES", "").strip()
+
+    def refresh_due_in() -> float:
+        # A refresh during the bootstrap import would take the shipped papers it
+        # has not seen yet for new ones (and screening could promote them over the
+        # imported rows), so the first run waits for the import to finish.
+        with session_factory() as s:
+            if corpus_importer.corpus_status_for_session(s)["state"] == "loading":
+                return 60.0
+        return corpus_refresh.seconds_until_due(
+            session_factory, interval_s=hours * 3600.0
+        )
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        stop = None
+        if hours is not None:
+            # Screen only new candidates. Re-triaging existing papers stays an
+            # explicit operation because it changes what search can find.
+            _, stop = corpus_refresh.start_scheduler(
                 interval_hours=hours,
-                run=lambda: corpus_refresh.run_once(
-                    session_factory,
-                    config_path=(
-                        Path(os.environ["MIDDLEWARE_REFRESH_QUERIES"])
-                        if os.environ.get("MIDDLEWARE_REFRESH_QUERIES")
-                        else None
-                    ),
+                run=lambda: corpus_screen.scheduled_refresh(
+                    session_factory, config_path=Path(queries) if queries else None
                 ),
+                due_in=refresh_due_in,
             )
+        try:
+            yield
+        finally:
+            if stop is not None:
+                stop.set()
+
+    app = FastAPI(
+        title="Study ingestion middleware", version="0.1.0", lifespan=lifespan
+    )
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(_request: Request, exc: RequestValidationError):
+        # Echoing raw input can itself fail JSON serialization (unpaired
+        # surrogates, NaN/Infinity). Keep the useful field and error explanation.
+        detail = [
+            {key: error[key] for key in ("type", "loc", "msg") if key in error}
+            for error in exc.errors()
+        ]
+        return Response(
+            json.dumps({"detail": detail}),
+            status_code=422,
+            media_type="application/json",
+        )
 
     def db() -> Session:
         session = session_factory()
@@ -385,7 +434,7 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
 
     study_data.register(app, deps)
 
-    _adopt_corpus_paper = library.register(app, deps)
+    _adopt_corpus_paper = library.register(app, deps, refresh_hours=hours)
 
     meta.register(app, deps)
 
@@ -398,10 +447,9 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
     participants.register(app, deps)
 
     def evidence_draft(s, study_id):
-        existing = s.get(ProtocolDraftRow, study_id)
         return compiler.compile_moves(
             _conversation_moves(s, study_id),
-            base_yaml=existing.yaml if existing else "",
+            base_yaml=draft_base_yaml(s, study_id),
         ).draft
 
     register_evidence_routes(

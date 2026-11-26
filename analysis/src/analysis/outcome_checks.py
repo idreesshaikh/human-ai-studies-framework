@@ -52,6 +52,12 @@ def _contract(protocol, measure):
                 if protocol.get("participants", {}).get("design") == "within-subjects"
                 else "two-group-nonparametric"
             )
+            if len(protocol.get("conditions", [])) == 2 and not protocol.get(
+                "covariate"
+            ):
+                # The two-arm t-tests consume the same timing field. ANCOVA
+                # also needs a baseline input that this check does not cover.
+                recipes.add("mean-comparison")
         if (
             "task_outcome.passed" in fields
             and protocol.get("participants", {}).get("design") == "within-subjects"

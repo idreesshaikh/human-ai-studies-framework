@@ -133,6 +133,17 @@ class ApproveIn(BaseModel):
     rationale: str = ""
 
 
+class ManualTaskEdit(BaseModel):
+    """A task row in the complete task list submitted by the manual editor."""
+
+    id: str | None = Field(default=None, min_length=1, max_length=48)
+    title: UnicodeText = Field(default="", max_length=80)
+    description: UnicodeText = Field(min_length=8, max_length=5000)
+    minutes: int | None = Field(default=None, ge=1, le=180)
+    materials: UnicodeText = Field(default="", max_length=600)
+    version: UnicodeText = Field(default="", max_length=120)
+
+
 class QuickProtocolIn(BaseModel):
     """The bounded no-chat path for a supported developer study."""
 
@@ -142,7 +153,12 @@ class QuickProtocolIn(BaseModel):
     conditions: list[UnicodeText] = Field(min_length=2, max_length=2)
     participantDescription: UnicodeText = Field(min_length=2, max_length=240)
     plannedParticipants: int = Field(ge=4, le=1000)
-    taskDescription: UnicodeText = Field(min_length=8, max_length=500)
+    taskDescription: UnicodeText = Field(min_length=8, max_length=5000)
+    taskEdits: list["ManualTaskEdit"] | None = Field(
+        default=None, min_length=1, max_length=12
+    )
+    additionalTaskDescription: UnicodeText = Field(default="", max_length=5000)
+    additionalTaskMinutes: int | None = Field(default=None, ge=1, le=180)
     sessionMinutes: int = Field(ge=15, le=180)
     measures: list[UnicodeText] = Field(min_length=1, max_length=6)
     measureIds: list[UnicodeText] = Field(default_factory=list, max_length=6)

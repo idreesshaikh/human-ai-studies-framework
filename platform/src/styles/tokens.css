@@ -101,7 +101,6 @@
   --mark: #2b4666;
   --unsourced: #5b6c85;
   --superseded: #5e6d85;
-  --conflict: var(--ink);
   --critical: #b0231b;
 
   --focus-ring: #1059d8;
@@ -126,7 +125,6 @@
   --viz-axis: #8fa2ba;
   --status-critical: var(--critical);
 
-  --header-h: 3.5rem;
   --constellation-h: clamp(20rem, 46vh, 36rem);
   --constellation-h-sparse: clamp(16rem, 32vh, 22rem);
   --library-pane-h: clamp(28rem, 68dvh, 42rem);
@@ -170,7 +168,6 @@
   --mark: #bacbdf;
   --unsourced: #91a4bd;
   --superseded: #8497b1;
-  --conflict: var(--ink);
   --critical: #ff8b7f;
 
   --focus-ring: #5ea3ff;
@@ -208,7 +205,7 @@
     scroll-behavior: auto;
   }
 
-  .animate-in,
+  .rise-in,
   .animate-pulse {
     animation: none !important;
   }

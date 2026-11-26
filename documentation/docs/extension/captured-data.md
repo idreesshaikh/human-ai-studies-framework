@@ -1,7 +1,9 @@
 # Captured data
 
 TERN writes one JSONL file per session, named `<participant>_<start time>.jsonl`.
-Each line is one event.
+Each line is one event. This page lists where the file is, what every event
+carries and how events reach the study server. Researchers use it to know what the
+data can and cannot show.
 
 ## Where the file is
 
@@ -102,8 +104,8 @@ Notes on reading these fields:
 
 - **`origin` on `edit_burst`** is `ai` when the edit came within 500 ms of an
   accepted inline suggestion, or added 80 or more characters in under 50 ms.
-  Formatters, snippets and renames can produce the same pattern, so it is not
-  evidence of AI use.
+  Formatters, snippets and renames can produce the same pattern and its error
+  rates have not been measured, so it is not evidence of AI use.
 - **`ai_suggestion`** records the **Tab** and **Esc** keys on an inline
   suggestion from any provider. VS Code does not report whether a suggestion
   was shown, so suggestions that were ignored are not recorded.
@@ -136,6 +138,11 @@ POST /ingest/events
   in the file.
 
 !!! note "Checking delivery"
-    In this version the **Your data** view does not show whether events reached
-    the server. Researchers can check the event rate and gaps for each running
-    session on the PHOENIX **Run** tab.
+    In a paired session the **Your data** view shows when events were last sent
+    and how many are not yet sent. Researchers can also check the event rate and
+    gaps for each running session on the PHOENIX **Run** tab.
+
+## Next steps
+
+- [Privacy](privacy.md) lists the few events that contain text or names
+- Researchers: [Review sessions and export](../platform/data.md)

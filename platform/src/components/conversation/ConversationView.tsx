@@ -1,5 +1,5 @@
 import { compileOnOpenAllowed, type RoleState } from "@/lib/role";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { MoreHorizontal, PanelRight, PanelRightClose, Send, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
@@ -60,6 +60,7 @@ function firstProposed(turns: Turn[]): string | null {
 }
 
 const LOADING_ROLE: RoleState = { status: "loading" };
+const VISIBLE_DECISIONS = 2;
 
 type NoteKind = "note" | "problem" | "offline";
 
@@ -68,6 +69,7 @@ export function ConversationView({
   opening: initialOpening = "",
   roleState = LOADING_ROLE,
   onProtocolChanged,
+  hasProtocol = false,
 }: {
   studyId?: string;
   /** My access to this study; a viewer's open never issues the compile POST. */
@@ -75,6 +77,8 @@ export function ConversationView({
   /** A first line to send once on arrival, typed while starting the study. */
   opening?: string;
   onProtocolChanged?: () => void;
+  /** Whether the study has an applied protocol (StudyHome's summary). */
+  hasProtocol?: boolean;
 }) {
   const [opening] = useState(initialOpening);
   const [turns, setTurns] = useState<Turn[]>(() => [openingTurn(opening)]);
@@ -116,11 +120,12 @@ export function ConversationView({
   /* The caret target: set only when a reply answers something the researcher just sent,
   * because `a` and `r` decide a move from one unmodified keystroke. */
   const [focusMoveId, setFocusMoveId] = useState<string | null>(null);
+  const [reopenedMoveId, setReopenedMoveId] = useState<string | null>(null);
   /* Keeps the opening-idea hand-off idempotent while the empty conversation is replaced. */
   const openingSubmitted = useRef<string | null>(null);
   /* Cancels the reply in flight (Stop). */
   const abortRef = useRef<AbortController | null>(null);
-  const activeRequest = useRef<{ text: string; id: string; pendingId: string; decision?: DecisionTrigger } | null>(null);
+  const activeRequest = useRef<{ text: string; id: string; pendingId: string; decision?: DecisionTrigger; keptDraft: boolean } | null>(null);
   /* The last turn that failed or was stopped, so resending the same text reuses
    * its request id and the server can recognise it as the same turn. */
   const failedRequest = useRef<{ text: string; id: string } | null>(null);
@@ -132,9 +137,15 @@ export function ConversationView({
   /* How much the assistant drives the conversation (lib/steer.ts); stored per study. */
   const [steer, setSteer] = useState<SteerLevel>(DEFAULT_STEER);
 
-  const threadEnd = useRef<HTMLDivElement>(null);
-  const followReply = useRef(true);
+  const thread = useRef<HTMLDivElement>(null);
+  const threadContent = useRef<HTMLDivElement>(null);
+  const latestMessage = useRef<HTMLDivElement>(null);
+  const scrollMode = useRef<"bottom" | "exchange" | "reading">("bottom");
+  const automaticScrollTop = useRef<number | null>(null);
+  const lastUserScrollIntent = useRef(0);
+  const [awayFromLatest, setAwayFromLatest] = useState(false);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const restoreComposerFocus = useRef(false);
   const mayCompile = compileOnOpenAllowed(roleState);
 
   useEffect(() => () => {
@@ -166,7 +177,7 @@ export function ConversationView({
     const el = composer.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+    if (el.value) el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, []);
 
   useEffect(() => {
@@ -174,8 +185,45 @@ export function ConversationView({
   }, [input, growComposer]);
 
   const followThread = useCallback(() => {
-    if (followReply.current) threadEnd.current?.scrollIntoView({ behavior: "instant", block: "end" });
+    const viewport = thread.current;
+    if (!viewport?.clientHeight || scrollMode.current === "reading") return;
+    const message = latestMessage.current;
+    let target = viewport.scrollHeight;
+    if (scrollMode.current === "exchange" && message) {
+      const bounds = message.getBoundingClientRect();
+      const top = viewport.scrollTop + bounds.top - viewport.getBoundingClientRect().top;
+      // Leave the question above the reply. For a very long question, keep
+      // its last lines so it doesn't occupy the whole viewport.
+      target = top + Math.max(0, bounds.height - viewport.clientHeight / 3);
+    }
+    viewport.scrollTop = target;
+    automaticScrollTop.current = viewport.scrollTop;
+    setAwayFromLatest(viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight > 24);
   }, []);
+
+  // Let the new exchange rise into view as it grows, then keep its start
+  // visible while the rest of the reply and proposal cards arrive below it.
+  useLayoutEffect(() => {
+    const viewport = thread.current;
+    const content = threadContent.current;
+    if (!viewport || !content) return;
+    const observer = new ResizeObserver(followThread);
+    observer.observe(viewport);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [followThread]);
+
+  useLayoutEffect(followThread, [followThread, turns, streaming]);
+
+  function jumpToLatest() {
+    scrollMode.current = "bottom";
+    followThread();
+    thread.current?.focus({ preventScroll: true });
+  }
+
+  function noteUserScrollIntent() {
+    lastUserScrollIntent.current = performance.now();
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -318,25 +366,20 @@ export function ConversationView({
 
   /* Puts an opening into the composer for the researcher to edit; only the human sends. */
   function takeOpening(text: string) {
-    setInput(text);
+    setInput((current) => current.trim() ? `${current.trimEnd()}\n\n${text}` : text);
     queueMicrotask(() => {
       const el = composer.current;
       if (!el) return;
-      el.focus();
-      el.setSelectionRange(text.length, text.length);
+      el.focus({ preventScroll: true });
+      el.setSelectionRange(el.value.length, el.value.length);
     });
   }
 
-  async function send() {
-    if (!mayCompile || conversationLoading || conversationLoadFailed) return;
-    const hadFocus = document.activeElement === composer.current;
-    const sent = sendText(input.trim());
-    const restoreFocus = () => {
-      if (hadFocus && document.activeElement === document.body) composer.current?.focus();
-    };
-    requestAnimationFrame(restoreFocus);
-    await sent;
-    requestAnimationFrame(restoreFocus);
+  function send(answer?: string) {
+    const text = answer ?? input.trim();
+    if (!text || !mayCompile || conversationLoading || conversationLoadFailed || busy || abortRef.current) return;
+    restoreComposerFocus.current = answer !== undefined || document.activeElement === composer.current;
+    void sendText(text);
   }
 
   /* The turn itself, so an opening typed elsewhere is sent on arrival without passing through the composer. */
@@ -344,6 +387,7 @@ export function ConversationView({
     if (!text || abortRef.current || (busy && !fromQueue)) return;
 
     setNote(null);
+    const keptDraft = !decision && Boolean(input) && input.trim() !== text;
     // Optimistic: show the message and clear the composer before the round-trip; the pending
     // id is swapped for the server's researcher turn when the reply lands.
     const pendingId = newRequestId();
@@ -356,10 +400,14 @@ export function ConversationView({
       recommendations: [],
     };
     setTurns((prev) => [...prev, researcherTurn]);
-    if (!decision) setInput("");
+    if (!decision && !keptDraft) setInput("");
     setBusy(true);
     setAnnouncedReply("");
-    followReply.current = true;
+    if (!fromQueue || scrollMode.current !== "reading") scrollMode.current = "exchange";
+    // A prior wheel or key gesture must not classify this send's automatic
+    // repositioning as a new choice to keep reading older messages.
+    lastUserScrollIntent.current = 0;
+    setAwayFromLatest(false);
     const controller = new AbortController();
     abortRef.current = controller;
     const requestId =
@@ -367,8 +415,7 @@ export function ConversationView({
         ? failedRequest.current.id
         : newRequestId();
     failedRequest.current = null;
-    activeRequest.current = { text, id: requestId, pendingId, decision };
-    queueMicrotask(followThread);
+    activeRequest.current = { text, id: requestId, pendingId, decision, keptDraft };
 
     try {
       // sendTurnStreaming resolves to [researcher(server id), platform], which replaces the optimistic turn.
@@ -394,6 +441,7 @@ export function ConversationView({
       setLive(true);
       setUnderstanding(appended.understanding);
       setAnnouncedReply(appended.turns.find((turn) => turn.role === "platform")?.text ?? "");
+      const superseded = new Set(appended.supersededMoveIds);
       setTurns((prev) => {
         /* The opening prompt is not a stored turn; keep it ahead of the server's turns. */
         const openingPrompt = prev.find((t) => t.turnId === "opening");
@@ -401,13 +449,18 @@ export function ConversationView({
           ...(openingPrompt ? [openingPrompt] : []),
           ...prev.filter(
             (t) => t.turnId !== pendingId && t.turnId !== "opening" && !appended.turns.some((next) => next.turnId === t.turnId),
-          ),
+          ).map((turn) => {
+            if (!turn.moves.some((move) => superseded.has(move.moveId))) return turn;
+            return {
+              ...turn,
+              moves: turn.moves.map((move) =>
+                superseded.has(move.moveId) ? { ...move, status: "superseded" as const } : move,
+              ),
+            };
+          }),
           ...appended.turns,
         ];
       });
-      /* A reply to a decision never takes the caret; focus stays where the researcher put it. */
-      if (!decision && followReply.current) setFocusMoveId(firstProposed(appended.turns));
-      queueMicrotask(followThread);
       const queued = queuedFollowUp.current;
       if (queued) {
         queuedFollowUp.current = null;
@@ -427,11 +480,12 @@ export function ConversationView({
         setNote(
           decision
             ? "The decision is saved. The assistant could not follow up."
-            : "Connection interrupted. Your message is back in the box.",
+            : keptDraft
+              ? "Connection interrupted. Choose the answer again to retry."
+              : "Connection interrupted. Your message is back in the box.",
           "offline",
         );
       }
-      queueMicrotask(followThread);
     } finally {
       if (abortRef.current === controller) {
         setStreaming(false);
@@ -456,8 +510,16 @@ export function ConversationView({
     if (!request.decision) setInput((current) => current || request.text);
     setStreaming(false);
     setBusy(false);
-    setNote(request.decision ? "Stopped the assistant’s follow-up." : "Stopped. Your message is back in the box.");
-    requestAnimationFrame(() => composer.current?.focus());
+    setNote(
+      request.decision
+        ? "Stopped the assistant’s follow-up."
+        : request.keptDraft
+          ? "Stopped. Your draft is still in the box."
+          : "Stopped. Your message is back in the box.",
+    );
+    /* Stop turns back into Send in place, so focus would stay on the button;
+     * the text to edit is in the composer. */
+    requestAnimationFrame(() => composer.current?.focus({ preventScroll: true }));
   }
 
   /* Undo remounts the card in the open list; the caret follows it instead of dropping to body. */
@@ -476,7 +538,9 @@ export function ConversationView({
     setTurns((prev) =>
       prev.map((t) => ({
         ...t,
-        moves: t.moves.map((m) => (m.moveId === moveId ? { ...m, status } : m)),
+        moves: t.moves.map((m) =>
+          m.moveId === moveId && m.status !== "superseded" ? { ...m, status } : m,
+        ),
       })),
     );
   }
@@ -506,11 +570,15 @@ export function ConversationView({
     if (!live) return;
     const move =
       renderedMove ?? turns.flatMap((t) => t.moves).find((m) => m.moveId === moveId);
-    if (!move) return;
+    if (!move || move.status === "superseded") return;
     const previousStatus = move.status;
+    if (status === "proposed") setReopenedMoveId(moveId);
+    else if (reopenedMoveId === moveId) setReopenedMoveId(null);
     /* Its other cards decide whether the assistant is asked for another turn. */
     const ownTurnMoves = turns.find((t) => t.moves.some((m) => m.moveId === moveId))?.moves ?? [];
-    const followUp = shouldFollowUpAfterDecision(ownTurnMoves, moveId, status);
+    /* A plan card's decision speaks for itself in the draft: no chat turn. */
+    const followUp =
+      move.kind !== "set-plan" && shouldFollowUpAfterDecision(ownTurnMoves, moveId, status);
     /* A card that had the caret is about to lose its Accept/Reject controls:
      * hand focus to the next undecided card, or to this card's Undo. */
     const heldFocus =
@@ -521,10 +589,8 @@ export function ConversationView({
       focusDecidedCard(moveId);
     }
     if (heldFocus) {
-      const target = nextFocusAfterDecision(
-        ownTurnMoves.length ? ownTurnMoves : turns.flatMap((t) => t.moves),
-        moveId,
-      );
+      scrollMode.current = "reading";
+      const target = nextFocusAfterDecision(pendingCards, moveId);
       requestAnimationFrame(() =>
         requestAnimationFrame(() => {
           const el =
@@ -550,9 +616,14 @@ export function ConversationView({
     );
     try {
       await conversationApi.decide(studyId, moveId, status);
-    } catch {
+    } catch (error) {
       restoreMove(moveId, previousStatus);
-      setNote("Decision not saved: the server did not respond. Try again.", "problem");
+      if (error instanceof ApiError && error.status === 409) {
+        setNote(plainErrorMessage(error, "This proposal changed. Reloading the conversation."), "problem");
+        void reloadConversation().catch(() => undefined);
+      } else {
+        setNote("Decision not saved: the server did not respond. Try again.", "problem");
+      }
       return;
     } finally {
       setDecisionsSaving((current) => current - 1);
@@ -592,6 +663,11 @@ export function ConversationView({
       (move) => move.status === "proposed" && move.kind !== "caution",
     );
     if (pending.length < 2) return;
+    const batchIds = new Set(pending.map((move) => move.moveId));
+    const next = pendingCards.find((move) => !batchIds.has(move.moveId));
+    scrollMode.current = "reading";
+    if (next) focusDecidedCard(next.moveId);
+    else composer.current?.focus({ preventScroll: true });
     const streaming = busy;
     if (!streaming) setBusy(true);
     setDecisionsSaving((current) => current + 1);
@@ -617,12 +693,12 @@ export function ConversationView({
         "Some cited papers were not added to the study. Retry from Literature.",
       );
       setNote(`${saved.length} choices were accepted together. Review the draft, then continue with any open detail.`);
-    } catch {
+    } catch (error) {
       setTurns((prev) =>
         prev.map((turn) => ({
           ...turn,
           moves: turn.moves.map((move) =>
-            pending.some((candidate) => candidate.moveId === move.moveId)
+            move.status !== "superseded" && pending.some((candidate) => candidate.moveId === move.moveId)
               ? {
                   ...move,
                   status: saved.some((candidate) => candidate.moveId === move.moveId)
@@ -633,13 +709,19 @@ export function ConversationView({
           ),
         })),
       );
-      setNote(`${saved.length} choices were saved; the rest remain open. Try again when the connection is stable.`, "problem");
+      if (error instanceof ApiError && error.status === 409) {
+        // A card in the batch was replaced by a newer proposal.
+        setNote(plainErrorMessage(error, "A proposal changed. Reloading the conversation."), "problem");
+        void reloadConversation().catch(() => undefined);
+      } else {
+        setNote(`${saved.length} choices were saved; the rest remain open. Try again when the connection is stable.`, "problem");
+      }
     } finally {
       setDecisionsSaving((current) => current - 1);
       if (!streaming) setBusy(false);
     }
-    /* One follow-up for the whole batch, not one per card. */
-    if (saved.length === pending.length) {
+    /* One follow-up for the whole batch, not one per card; plan cards need none. */
+    if (saved.length === pending.length && pending.some((move) => move.kind !== "set-plan")) {
       const text = acceptedBatchText(saved.length);
       const decision: DecisionTrigger = { moveId: pending[pending.length - 1].moveId, action: "accepted" };
       if (streaming) {
@@ -655,12 +737,18 @@ export function ConversationView({
     addPapers([{ ref, why: rec?.matchReason ?? "" }], "Paper not added: check the connection and retry.");
   }
 
-  async function showSavedDraft() {
+  async function showSavedDraft(result: CompileResult) {
     setLive(true);
     onProtocolChanged?.();
     try {
-      await reloadConversation();
+      const updated = await reloadConversation();
+      const signature = JSON.stringify(updated.flatMap((turn) => turn.moves));
+      setCompileResult(result);
+      setCompiledMovesSignature(signature);
+      setReadOnlyProtocol(null);
     } catch {
+      setCompileResult(null);
+      setCompiledMovesSignature(null);
       setNote("Draft saved. Reload the workspace to see the latest decisions.", "problem");
     }
   }
@@ -706,8 +794,24 @@ export function ConversationView({
     .reverse()
     .find(({ turn }) => turn.role === "platform" && turn.turnId !== "opening")?.index ?? -1;
   const activePlatform = activePlatformIndex >= 0 ? turns[activePlatformIndex] : null;
+  // Keep one queue across replies. Decided cards stay with their original turn.
+  const reopenedCard = allMoves.find((move) => move.moveId === reopenedMoveId && move.status === "proposed");
+  const pendingCards = [
+    ...(reopenedCard ? [reopenedCard] : []),
+    ...allMoves.filter((move) => move.status === "proposed" && move !== reopenedCard),
+  ];
+  // An unanswered question is the one action for this turn. Keep even older
+  // pending proposals out of the way until the researcher answers it.
+  const awaitingAnswer = Boolean(activePlatform?.questions?.length);
+  const latestCards = awaitingAnswer
+    ? []
+    : [
+        ...pendingCards.slice(0, VISIBLE_DECISIONS),
+        ...(activePlatform?.moves.filter((move) => move.status !== "proposed") ?? []),
+      ];
   // Keep researcher messages visible even when their wording resembles a card decision.
   const conversationTurns = turns.filter(turn => turn.turnId !== "opening");
+  const lastResearcherTurn = conversationTurns.filter((turn) => turn.role === "researcher").at(-1);
   const visibleCompile = currentCompileResult && missingCoreSlots.length > 0
     ? {
         ...currentCompileResult,
@@ -721,18 +825,27 @@ export function ConversationView({
     : currentCompileResult;
   const scopeBlocked = activePlatform?.source === "scope";
   const welcome = !conversationLoading && !conversationLoadFailed && threadEmpty && !openingPending && conversationTurns.length === 0;
+  /* A template study: its starting protocol is the draft, nothing is applied yet. */
+  const startsFromTemplate =
+    welcome && !hasProtocol && clientDraft.researchQuestions.length > 0 && Boolean(currentCompileResult?.valid);
   const mayDecide = mayCompile && live;
+  // The welcome and active views mount different composers. Recover focus
+  // after React commits each transition, including a return to welcome on failure.
+  useLayoutEffect(() => {
+    if (!restoreComposerFocus.current) return;
+    if (document.activeElement === document.body) composer.current?.focus({ preventScroll: true });
+    if (!busy) restoreComposerFocus.current = false;
+  }, [busy, welcome]);
   const messageComposer = mayCompile && !conversationLoadFailed ? (
     <form
       className={cn("mx-auto w-full max-w-reading bg-surface", !welcome && "px-4 pb-4 pt-2 sm:px-8")}
       onSubmit={(event) => { event.preventDefault(); send(); }}
     >
-      <div className="composer focus-ring-owned mx-auto flex w-full max-w-reading items-end gap-2 rounded-card border border-border bg-surface px-3 py-2 has-[textarea:focus]:outline has-[textarea:focus]:outline-2 has-[textarea:focus]:outline-accent">
-        <SteerDial value={steer} onChange={changeSteer} />
+      <div className="composer focus-ring-owned mx-auto flex w-full items-end gap-2 rounded-card border border-border bg-surface px-2 py-2 has-[textarea:focus]:outline has-[textarea:focus]:outline-2 has-[textarea:focus]:outline-accent">
         <textarea
           ref={composer}
           className="focus-ring-owned outline-none type-body-lg min-h-8 min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-1 py-1 text-text placeholder:text-text-muted"
-          placeholder={welcome ? "Describe your research question…" : "Message the design assistant…"}
+          placeholder={startsFromTemplate ? "What would you change?" : welcome ? "Write a research question…" : "Message the design assistant…"}
           value={input}
           rows={1}
           readOnly={streaming && !activeRequest.current?.decision}
@@ -744,6 +857,7 @@ export function ConversationView({
           }}
           aria-label="Message the design assistant"
         />
+          <SteerDial value={steer} onChange={changeSteer} />
           {streaming ? (
             <Button type="button" size="icon" variant="outline" aria-label="Stop reply" onClick={(event) => { event.preventDefault(); stopReply(); }}><Square aria-hidden /></Button>
           ) : (
@@ -758,109 +872,134 @@ export function ConversationView({
       className={cn("split-rail chat-workspace h-full bg-surface", draftFolded && "rail-folded")}
     >
       <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-        <div
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto"
-          onWheel={(event) => { if (event.deltaY < 0) followReply.current = false; }}
-          onKeyDown={(event) => {
-            if (["PageUp", "Home", "ArrowUp"].includes(event.key)) followReply.current = false;
-          }}
-          onScroll={(event) => {
-            const thread = event.currentTarget;
-            followReply.current = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 80;
-          }}
-        >
-          <header className="mx-auto w-full max-w-reading bg-surface px-4 py-1 sm:px-8">
-            <h2 className="sr-only">Study design chat</h2>
-            <div className="mx-auto flex w-full max-w-reading items-center justify-end gap-1">
-                {mayDecide && <Button className={cn(!draftFolded && "md:hidden")} variant="ghost" size="sm" onClick={openReview}>
-                  Review draft
-                </Button>}
-                {mayDecide && <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" aria-label="Research tools" title="Research tools"><MoreHorizontal aria-hidden /></Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => setEvidenceOpen(open => !open)}>{evidenceOpen ? "Close method comparison" : "Compare methods"}</DropdownMenuItem>
-                    {live && <DropdownMenuItem onSelect={() => setManualOpen(true)}>Enter protocol manually</DropdownMenuItem>}
-                  </DropdownMenuContent>
-                </DropdownMenu>}
+        <header className="mx-auto w-full max-w-reading bg-surface px-4 py-1 sm:px-8">
+          <h2 className="sr-only">Study design chat</h2>
+          <div className="mx-auto flex min-h-11 w-full max-w-reading items-center gap-1">
+            {awayFromLatest && !welcome && (
+              <Button type="button" size="sm" variant="ghost" onClick={jumpToLatest}>Jump to latest</Button>
+            )}
+            <div className="ml-auto flex items-center gap-1">
+              {mayDecide && (!welcome || hasProtocol) && <Button className={cn(!draftFolded && "md:hidden")} variant="ghost" size="sm" onClick={openReview}>
+                Review draft
+              </Button>}
+              {mayDecide && <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="Research tools" title="Research tools"><MoreHorizontal aria-hidden /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setEvidenceOpen(open => !open)}>{evidenceOpen ? "Close method comparison" : "Compare methods"}</DropdownMenuItem>
+                  {live && <DropdownMenuItem onSelect={() => setManualOpen(true)}>Enter protocol manually</DropdownMenuItem>}
+                </DropdownMenuContent>
+              </DropdownMenu>}
             </div>
-          </header>
-
-          {evidenceOpen && <EvidencePanel studyId={studyId} onClose={() => { setEvidenceOpen(false); queueMicrotask(() => composer.current?.focus()); }} onProposed={async () => { const updated = await reloadConversation(); setLive(true); setNote(null); setEvidenceOpen(false); setFocusMoveId(firstProposed(updated)); }} />}
-
-          <div className={cn("mx-auto flex w-full max-w-reading flex-col gap-5 px-4 py-5 sm:px-8 sm:py-8", welcome && "flex-1 justify-center pb-12")}>
-            {conversationLoading ? (
-              <div className="space-y-3 py-2" role="status" aria-busy="true" aria-label="Loading conversation">
-                <div className="h-3 w-24 animate-pulse rounded-full bg-border" />
-                <div className="h-4 w-4/5 animate-pulse rounded-full bg-border" />
-                <div className="h-4 w-3/5 animate-pulse rounded-full bg-border" />
-              </div>
-            ) : conversationLoadFailed ? (
-              <div className="space-y-3">
-                <Notice kind="problem">The study conversation couldn’t be loaded.</Notice>
-                <Button variant="outline" onClick={() => {
-                  setConversationLoading(true);
-                  setConversationLoadFailed(false);
-                  setLoadAttempt((attempt) => attempt + 1);
-                }}>Retry conversation</Button>
-              </div>
-            ) : welcome && mayCompile ? (
-              <ConversationStart
-                onUse={takeOpening}
-                onEnterManually={live ? () => setManualOpen(true) : undefined}
-                composer={messageComposer}
-              />
-            ) : welcome ? (
-              <p className="type-body text-text-muted">No messages have been recorded for this study.</p>
-            ) : (
-              <div className="flex flex-col gap-5">
-                {conversationTurns.map(turn => (
-                  <div key={turn.turnId}>
-                    <StreamingTurn
-                      turn={turn === activePlatform ? turn : { ...turn, moves: [] }}
-                      onDecide={mayDecide ? decide : undefined}
-                      onAcceptBatch={mayDecide && turn === activePlatform ? acceptBatch : undefined}
-                      focusMoveId={turn === activePlatform ? focusMoveId : null}
-                      active
-                      showKeyHint={turn === activePlatform}
-                    />
-                    {/* Pending choices stay open after a later turn lands; only fully decided turns fold away. */}
-                    {turn !== activePlatform && turn.moves.some(move => move.status === "proposed") && (
-                      <StreamingTurn
-                        turn={{ ...turn, text: "" }}
-                        onDecide={mayDecide ? decide : undefined}
-                        onAcceptBatch={mayDecide ? acceptBatch : undefined}
-                        active
+          </div>
+        </header>
+        <div className="min-h-0 min-w-0 flex-1">
+          <div
+            ref={thread}
+            tabIndex={0}
+            role="region"
+            aria-label="Conversation"
+            className="scroll-region h-full overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable] [overflow-anchor:none]"
+            onWheel={noteUserScrollIntent}
+            onTouchMove={noteUserScrollIntent}
+            onPointerDown={noteUserScrollIntent}
+            onKeyDown={(event) => {
+              if (
+                event.target === event.currentTarget &&
+                [" ", "ArrowDown", "ArrowUp", "End", "Home", "PageDown", "PageUp"].includes(event.key)
+              ) noteUserScrollIntent();
+            }}
+            onScroll={(event) => {
+              const viewport = event.currentTarget;
+              if (!viewport.clientHeight) return;
+              const distance = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+              // A taller viewport can clamp scrollTop before ResizeObserver
+              // runs. Keep the new exchange anchored through that resize.
+              const clamped = automaticScrollTop.current !== null
+                && viewport.scrollTop < automaticScrollTop.current && distance <= 2;
+              if (!clamped && viewport.scrollTop !== automaticScrollTop.current) {
+                // Browser scroll anchoring can move scrollTop during a resize or
+                // content reflow. Only treat a change as the researcher's choice
+                // to read older content when it follows an actual input gesture.
+                if (performance.now() - lastUserScrollIntent.current < 250) {
+                  scrollMode.current = distance <= 24 ? "bottom" : "reading";
+                }
+                automaticScrollTop.current = null;
+              }
+              setAwayFromLatest(distance > 24);
+            }}
+          >
+            {/* Keep the scroll content at least one viewport tall through the
+             * welcome-to-chat transition; collapsing it on the first send
+             * changes scrollTop while the new exchange is being anchored. */}
+            <div ref={threadContent} className="flex min-h-full flex-col">
+              {evidenceOpen && <EvidencePanel studyId={studyId} onClose={() => { setEvidenceOpen(false); queueMicrotask(() => composer.current?.focus()); }} onProposed={async () => { const updated = await reloadConversation(); setLive(true); setNote(null); setEvidenceOpen(false); setFocusMoveId(firstProposed(updated)); }} />}
+              <div className={cn("mx-auto w-full max-w-reading px-4 sm:px-8", welcome ? "my-auto pb-6 pt-10 sm:pb-8 sm:pt-16" : "py-5 sm:py-8")}>
+                {conversationLoading ? (
+                  <p className="type-note text-text-muted" role="status">Loading conversation…</p>
+                ) : conversationLoadFailed ? (
+                  <div className="space-y-3">
+                    <Notice kind="problem">The study conversation couldn’t be loaded.</Notice>
+                    <Button variant="outline" onClick={() => {
+                      setConversationLoading(true);
+                      setConversationLoadFailed(false);
+                      setLoadAttempt((attempt) => attempt + 1);
+                    }}>Retry conversation</Button>
+                  </div>
+                ) : welcome && mayCompile ? (
+                  <ConversationStart
+                    onUse={takeOpening}
+                    onEnterManually={live ? () => setManualOpen(true) : undefined}
+                    composer={messageComposer}
+                    onReviewStartingDraft={startsFromTemplate ? openReview : undefined}
+                  />
+                ) : welcome ? (
+                  <p className="type-body text-text-muted">No messages have been recorded for this study.</p>
+                ) : (
+                  <div className="flex flex-col gap-5">
+                    {conversationTurns.map(turn => {
+                      const history = turn.moves.filter((move) => move.status !== "proposed");
+                      return (
+                      <div key={turn.turnId} ref={turn === lastResearcherTurn ? latestMessage : undefined}>
+                        <StreamingTurn
+                          turn={turn === activePlatform ? { ...turn, moves: latestCards } : { ...turn, moves: [] }}
+                          onDecide={mayDecide ? decide : undefined}
+                          onAcceptBatch={mayDecide && turn === activePlatform ? acceptBatch : undefined}
+                          onAnswer={mayCompile && turn === activePlatform && !busy ? send : undefined}
+                          focusMoveId={turn === activePlatform ? focusMoveId : null}
+                          active
+                          showKeyHint={turn === activePlatform}
+                          queuedCount={turn === activePlatform && !awaitingAnswer ? Math.max(0, pendingCards.length - VISIBLE_DECISIONS) : 0}
+                        />
+                        {turn !== activePlatform && history.length > 0 && (
+                          <details className="mt-2">
+                            <summary className="type-caption cursor-pointer text-text-muted">
+                              Decisions ({history.length})
+                            </summary>
+                            <StreamingTurn turn={{ ...turn, text: "", questions: [], moves: history }} onDecide={mayDecide ? decide : undefined} />
+                          </details>
+                        )}
+                      </div>
+                      );
+                    })}
+                    {streaming && (
+                      <StreamingReply
+                        key={activeRequest.current?.pendingId}
+                        ref={preview}
+                        source={incomingReply}
                       />
                     )}
-                    {turn !== activePlatform && turn.moves.length > 0 && !turn.moves.some(move => move.status === "proposed") && (
-                      <details className="mt-2">
-                        <summary className="type-caption cursor-pointer text-text-muted">
-                          Decisions ({turn.moves.length})
-                        </summary>
-                        <StreamingTurn turn={{ ...turn, text: "" }} onDecide={mayDecide ? decide : undefined} />
-                      </details>
-                    )}
                   </div>
-                ))}
-                {streaming && (
-                  <StreamingReply
-                    key={activeRequest.current?.pendingId}
-                    ref={preview}
-                    source={incomingReply}
-                    follow={followThread}
-                  />
                 )}
-              </div>
-            )}
 
-            {/* Announced once, when a reply finishes streaming: a live region
-              * whose text changes per token would read the stream aloud. */}
-            <div className="sr-only" role="status" aria-live="polite" data-testid="turn-announcer">
-              {announcedReply}
+                {/* Announced once, when a reply finishes streaming: a live region
+                  * whose text changes per token would read the stream aloud. */}
+                <div className="sr-only" role="status" aria-live="polite" data-testid="turn-announcer">
+                  {announcedReply}
+                </div>
+              </div>
             </div>
-            <div ref={threadEnd} />
           </div>
         </div>
 
@@ -882,13 +1021,7 @@ export function ConversationView({
 
       {/* Right rail, from 768px: the protocol draft or the chat's papers.
           It folds to a labelled strip; the choice persists per study. */}
-      <div
-        className={cn(
-          "hidden min-h-0 min-w-0 flex-col border-l border-border bg-surface md:flex",
-          /* The expanded rail takes its width from the grid; the folded rail sizes the auto track. */
-          draftFolded ? "w-12" : "w-full",
-        )}
-      >
+      <div className="hidden min-h-0 min-w-0 flex-col overflow-hidden border-l border-border bg-surface md:flex">
         {draftFolded ? (
           <div className="flex h-full flex-col items-center py-3">
             <button
@@ -967,7 +1100,7 @@ export function ConversationView({
           protocol={currentCompileResult?.protocol}
           moves={allMoves}
           onClose={() => setManualOpen(false)}
-          onEntered={() => void showSavedDraft()}
+          onEntered={showSavedDraft}
         />
       )}
       <FinishReview

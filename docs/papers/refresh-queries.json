@@ -12,10 +12,12 @@
     }
   ],
   "semanticScholar": [
-    "AI coding assistant developer controlled experiment",
-    "Copilot randomized controlled trial programmers",
-    "LLM-assisted programming user study productivity",
-    "generative AI software engineers field experiment"
+    "(copilot | \"coding assistant\" | \"coding assistants\" | \"AI pair programming\" | \"LLM-assisted programming\" | \"AI-assisted programming\") + (developers | programmers) + (experiment | \"user study\" | trial | \"field study\" | survey | interview)",
+    "(\"large language model\" | LLM | \"generative AI\" | ChatGPT) + (developers | programmers | \"software engineers\") + (productivity | trust | \"code quality\" | \"user study\" | experiment)",
+    "(\"coding agent\" | \"coding agents\" | \"agentic coding\" | \"AI agent\") + (developers | \"pull requests\" | \"software engineering\") + (empirical | \"user study\" | experiment | \"field study\")",
+    "(\"AI assistant\" | \"AI assistance\" | \"LLM assistance\" | \"generative AI\" | ChatGPT | copilot) + (\"introductory programming\" | CS1 | \"novice programmers\" | \"programming students\" | \"programming course\")"
   ],
-  "maxPerQuery": 100
+  "maxPerQuery": 100,
+  "recommendations": 100,
+  "citations": 20
 }

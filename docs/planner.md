@@ -75,17 +75,18 @@ For studies with an AI-access and a no-AI condition, use randomized assignment a
 
 External CLI bulk reloads, drag-and-drop paste and activity outside the editor are known blind spots. Edit-origin heuristics and agent annotations are not independent ground truth. Decisions include a reason and retain their history. The audit never automatically excludes a session.
 
-Real scripted calibration sessions with independent truth are still required. Submit labels through `POST /studies/{id}/audit-calibration` with `labels: {sessionId: true|false}` and a `source` describing the independent observation. The endpoint accepts only this study's real captured control sessions, records the supplied labels/source, and reports per-signal/combined sensitivity and specificity with exact binomial intervals and explicit abstentions. Unit-test labels validate computation; they are not audit accuracy evidence. Decision models remain gated until real labels exist.
+Real scripted calibration sessions with independent truth are still required. Submit labels through `POST /studies/{id}/audit-calibration` with `labels: {sessionId: true|false}` and a `source` describing the independent observation. The endpoint accepts only this study's real captured sessions, in any declared condition so scripted scenarios can cover every route, records the supplied labels/source, and reports per-signal/combined sensitivity and specificity with exact binomial intervals and explicit abstentions. Unit-test labels validate computation; they are not audit accuracy evidence. Decision models remain gated until real labels exist.
 
 ## API and exports
 
 ### Outcome capture checks
 
-In **Data → Outcome capture**, inspect a rehearsal against its declared
-measures. The check connects each supported instrument and field to observed
-events, its analysis recipe, session counts, condition coverage, and participant
-pairs. Expand an outcome for discrepancies and corrective actions; download the
-JSON report to retain protocol, capture configuration, and data fingerprints.
+In the Data tab, expand **Outcome capture checks** and choose **Check captured
+inputs** to inspect a rehearsal against its declared measures. The check connects
+each supported instrument and field to observed events, its analysis recipe,
+session counts, condition coverage, and participant pairs. Expand an outcome for
+discrepancies and corrective actions; download the JSON report to retain
+protocol, capture configuration, and data fingerprints.
 
 The built-in checks cover task-test success, explicit `firstGreenMs` timing,
 and declared post-task survey items or scores. They check producer configuration,
@@ -112,14 +113,17 @@ All study routes retain project authorization. Calculations/tags/calibration req
 
 | Route | Purpose |
 | --- | --- |
+| `GET /instruments/surveys` | The shipped survey definitions to include in `instruments.surveys[]` |
 | `GET /studies/{id}/plan` | Current protocol, latest saved plan, stale-hash flag and session decisions |
 | `POST /studies/{id}/plan` | Validate assumptions against protocol, calculate and save immutable plan |
 | `GET /studies/{id}/power` | Unsaved compatibility shape backed by the same planner; before a protocol exists, explicitly exploratory t-test assumptions |
 | `POST /studies/{id}/pilot-variance` | Re-estimate variance from real tagged pilot rows and save before/after plan |
+| `POST /studies/{id}/plan/noncompliance` | Simulate how control-arm violation and AI-arm non-use bias three analyses and change the sample each needs; reads no study data |
 | `GET /studies/{id}/control-arm-audit` | Session signals, limits and recorded decisions/calibration |
 | `POST /studies/{id}/sessions/{session}/annotation` | Record pilot/inclusion decision and required reason |
+| `POST /studies/{id}/audit-calibration` | Submit labelled scripted sessions; reports per-signal sensitivity and specificity with exact binomial intervals |
 | `GET /studies/{id}/lineage` | Side-by-side original/re-run fields from `rerunOf` ID or recorded protocol hash |
-| `GET /studies/{id}/design-card?format=json|markdown` | Factual standalone design card |
+| `GET /studies/{id}/design-card?format=json\|markdown` | Factual standalone design card |
 
 Planning uses snake-case inputs, for example:
 

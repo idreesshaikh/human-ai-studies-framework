@@ -121,18 +121,25 @@ def test_design_turn_uses_the_single_mistral_route(client, monkeypatch):
     assert all(model is None for model in requested)
 
 
-def test_over_trust_moves_are_grounded_only_in_retrieved(client):
-    """F2.1: every move's grounding ref was retrieved this exchange."""
+def test_over_trust_moves_are_grounded_only_in_retrieved(client, monkeypatch):
+    """F2.1: every card's grounding ref was retrieved this exchange."""
+    every_id = [f"P{i}" for i in range(1, 12)]
+    monkeypatch.setattr(
+        assistant,
+        "make_client",
+        lambda *a, **k: model_double.always(
+            model_double.draft(
+                sources={"design": every_id, "researchQuestions": [every_id, []]}
+            )
+        ),
+    )
     reply = _ask(client, "I think junior developers over-trust AI-generated code")
-    assert reply["moves"], "the over-trust script must propose moves"
-    export = client.get(f"/studies/{STUDY}/conversation/export").json()
-    grounded = [
-        g for turn in export["turns"] for m in turn["moves"] for g in m["grounding"]
-    ]
-    assert grounded, "at least one move must be grounded"
-    refs = {g["ref"] for g in grounded if g["ref"] != "none"}
-    assert "corpus:trust-in-ai-code-generation" in refs
-    assert len(reply["moves"]) == 1
+    assert reply["moves"]
+    retrieved = {r["ref"] for r in reply["recommendations"]}
+    grounded = {g["ref"] for m in reply["moves"] for g in m["grounding"]}
+    assert grounded, "at least one card must be grounded"
+    assert grounded <= retrieved
+    assert "corpus:trust-in-ai-code-generation" in grounded
 
 
 def test_recommendations_surface_the_two_demo_papers(client):
@@ -179,15 +186,6 @@ def test_recommendation_in_study_state_is_recomputed_after_add(client):
     assert current["inStudy"] is True
 
 
-def test_self_report_draws_metr_caution(client):
-    """F2.2: measuring productivity by self-report alone gets the METR caution."""
-    reply = _ask(client, "I'll measure productivity by self-report survey")
-    cautions = [m for m in reply["moves"] if m["kind"] == "caution"]
-    assert cautions, "a self-report-only claim must draw a caution"
-    refs = {g["ref"] for m in cautions for g in m["grounding"]}
-    assert "corpus:metr-early-2025-dev-productivity" in refs
-
-
 _STUDY_SKETCH = (
     "I want to see whether developers finish maintenance tasks faster with "
     "an AI assistant than without one, in 45-minute lab sessions, "
@@ -196,22 +194,11 @@ _STUDY_SKETCH = (
 
 
 def _drive_to_valid_draft(client) -> dict:
-    """
-    Accept the template-choice move the design script proposes → a complete, validating
-    protocol draft, all in-conversation (F1.1).
-    """
-    _ask(client, _STUDY_SKETCH)
-    reply = _ask(
-        client,
-        (
-            "what design and statistics should I use? I was thinking "
-            "within-subjects, with each developer doing both conditions "
-            "counterbalanced"
-        ),
-    )
-    template_moves = [m for m in reply["moves"] if m["kind"] == "choose-template"]
-    assert template_moves, "the design script must propose a template"
-    for m in template_moves:
+    """Describe the study, accept the proposed plan: a complete, validating
+    protocol draft, all in-conversation (F1.1)."""
+    reply = _ask(client, _STUDY_SKETCH)
+    assert reply["moves"], "describing the study must produce a plan"
+    for m in reply["moves"]:
         _accept(client, m["moveId"])
     return _compile(client)
 
@@ -224,7 +211,7 @@ def test_empty_to_validating_draft_in_conversation(client):
     result = _drive_to_valid_draft(client)
     assert result["valid"], result["errors"]
     assert result["unresolved"] == []
-    assert result["templateId"] == "metr-rct-v1"
+    assert result["templateId"] == "within-subjects-crossover-v1"
 
 
 def test_compile_is_deterministic(client):
@@ -272,9 +259,9 @@ def test_delete_removes_a_study_with_moves_and_an_approval(client):
 
 def test_study_created_with_seeded_protocol_draft(client):
     """
-    Templates-first (P1-2): creating a study with a ``protocol`` body lands that
-    protocol as the draft, so the design conversation continues from a merged template
-    instead of a blank page (compiles take the current draft as their base).
+    Templates-first (P1-2): a study created with a ``protocol`` body starts its
+    draft from that protocol, but nothing is the study's protocol until it is
+    reviewed and applied, exactly as for a designed study.
     """
     protocol = {
         "study": {"title": "Seeded", "design": "within-subjects"},
@@ -287,10 +274,15 @@ def test_study_created_with_seeded_protocol_draft(client):
     assert r.json()["id"] == "seeded"
 
     export = client.get("/studies/seeded/conversation/export").json()
-    assert "Seeded" in export["currentDraft"]
-    assert "RQ-1" in export["currentDraft"]
-    assert "id: seeded" in export["currentDraft"]
-    assert "title: Seeded" in export["currentDraft"]
+    assert export["currentDraft"] == ""
+    assert export["approvals"] == []
+    listed = client.get("/projects/implicit").json()["studies"]
+    assert next(st for st in listed if st["id"] == "seeded")["hasProtocol"] is False
+
+    compiled = client.post("/studies/seeded/conversation/compile", json={}).json()
+    assert compiled["protocol"]["study"]["id"] == "seeded"
+    assert compiled["protocol"]["study"]["title"] == "Seeded"
+    assert compiled["protocol"]["researchQuestions"][0]["id"] == "RQ-1"
 
 
 def test_study_rejects_non_protocol_seed(client):
@@ -301,6 +293,12 @@ def test_study_rejects_non_protocol_seed(client):
     r = client.post(
         "/projects/implicit/studies",
         json={"name": "Broken", "protocol": {"foo": "bar"}},
+    )
+    assert r.status_code == 422, r.text
+    # Research questions that are not objects would break every compile.
+    r = client.post(
+        "/projects/implicit/studies",
+        json={"name": "Broken", "protocol": {"study": {}, "researchQuestions": ["q"]}},
     )
     assert r.status_code == 422, r.text
     retry = client.post("/projects/implicit/studies", json={"name": "Broken"})
@@ -353,29 +351,37 @@ def test_approval_rejects_a_compilation_stale_after_a_move_change(client):
 
 def test_rejecting_a_move_keeps_it_out_of_the_draft(client):
     """
-    F1.2: moves are individually decidable; a rejected move leaves no trace in the
+    F1.2: cards are individually decidable; a rejected card leaves no trace in the
     compiled draft.
     """
-    reply = _ask(client, "I think junior developers over-trust AI-generated code")
-    rq_moves = [m for m in reply["moves"] if m["kind"] == "add-rq"]
-    assert rq_moves
-    _accept(client, rq_moves[0]["moveId"], status="rejected")
+    reply = _ask(client, _STUDY_SKETCH)
+    questions = next(m for m in reply["moves"] if m["patch"]["part"] == "questions")
+    for m in reply["moves"]:
+        _accept(
+            client, m["moveId"], status="rejected" if m is questions else "accepted"
+        )
     result = _compile(client)
-    assert rq_moves[0]["patch"]["value"] not in result["yaml"]
+    assert not result["valid"]
+    assert "the research questions" in result["unresolved"]
+    for question in questions["patch"]["plan"]["researchQuestions"]:
+        assert question not in result["yaml"]
 
 
 def test_undoing_a_decision_reopens_the_move(client, tmp_path):
     """
-    A decided move can be reopened back to 'proposed'  -  undo, not just accept/reject.
+    A decided card can be reopened back to 'proposed'  -  undo, not just accept/reject.
     """
-    reply = _ask(client, "I think junior developers over-trust AI-generated code")
-    rq_moves = [m for m in reply["moves"] if m["kind"] == "add-rq"]
-    assert rq_moves
-    move_id = rq_moves[0]["moveId"]
+    reply = _ask(client, _STUDY_SKETCH)
+    card = next(m for m in reply["moves"] if m["patch"]["part"] == "questions")
+    question = card["patch"]["plan"]["researchQuestions"][0]
+    move_id = card["moveId"]
+
+    def questions() -> list[str]:
+        protocol = _compile(client)["protocol"]
+        return [q["text"] for q in protocol.get("researchQuestions") or []]
 
     _accept(client, move_id, status="accepted")
-    compiled = _compile(client)
-    assert rq_moves[0]["patch"]["value"] in compiled["yaml"]
+    assert question in questions()
 
     r = client.post(
         f"/studies/{STUDY}/conversation/moves/{move_id}/decision",
@@ -387,9 +393,7 @@ def test_undoing_a_decision_reopens_the_move(client, tmp_path):
         "status": "proposed",
         "papersAdded": [],
     }
-
-    reopened = _compile(client)
-    assert rq_moves[0]["patch"]["value"] not in reopened["yaml"]
+    assert question not in questions()
 
     factory = make_session_factory(f"sqlite:///{tmp_path / 'test.sqlite3'}")
     with factory() as s:
@@ -416,42 +420,30 @@ def test_evasive_conversation_names_unresolved_slots(client):
 
 def test_unsourced_move_compiles_with_grounding_recorded(client, monkeypatch):
     """
-    F2.3: a move the literature can't settle - a scoping decision that is the
-    researcher's own - still compiles, and the record marks it ungrounded rather than
-    borrowing a citation to look sourced.
+    F2.3: a card the literature can't settle still compiles, and the record marks it
+    ungrounded rather than borrowing a citation to look sourced.
     """
     monkeypatch.setattr(
         assistant,
         "make_client",
-        lambda *a, **k: model_double.always(
-            {
-                "text": "Your call, not the literature's.",
-                "moves": [
-                    model_double.move(
-                        "set-parameter",
-                        "conditions",
-                        "Experience level: junior vs. senior",
-                    )
-                ],
-            }
-        ),
+        lambda *a, **k: model_double.always(model_double.draft()),
     )
     reply = _ask(client, "I think junior developers over-trust AI-generated code")
-    unsourced = [m for m in reply["moves"] if not m["grounding"]]
-    assert unsourced, "a researcher-judgment move should be unsourced"
+    assert reply["moves"] and all(m["grounding"] == [] for m in reply["moves"])
+    for m in reply["moves"]:
+        _accept(client, m["moveId"])
+    assert _compile(client)["valid"]
     export = client.get(f"/studies/{STUDY}/conversation/export").json()
-    all_moves = [m for t in export["turns"] for m in t["moves"]]
-    assert any(m["grounding"] == [] for m in all_moves)
+    assert all(m["grounding"] == [] for t in export["turns"] for m in t["moves"])
 
 
 def test_invalid_draft_cannot_be_approved(client):
     """
-    F3.2/F3.3: a scaffold that fails validation returns errors/unresolved and cannot be
-    applied  -  a conversation never silently produces (or applies) an invalid draft.
+    F3.2/F3.3: a partly accepted plan fails validation and cannot be applied  -  a
+    conversation never silently produces (or applies) an invalid draft.
     """
-    reply = _ask(client, "I think junior developers over-trust AI-generated code")
-    for m in reply["moves"]:
-        _accept(client, m["moveId"])
+    reply = _ask(client, _STUDY_SKETCH)
+    _accept(client, reply["moves"][0]["moveId"])
     result = _compile(client)
     assert not result["valid"]
     r = client.post(
@@ -491,102 +483,33 @@ def test_reloading_the_conversation_recomputes_understanding(client):
     assert conversation["understanding"] == reply["understanding"]
 
 
-def _fake_llm(reply_json: dict):
-    """A model that gives one fixed reply (``model_double.always``)."""
-    return model_double.always(reply_json)
-
-
 def test_llm_configured_and_healthy_produces_an_llm_sourced_turn(client, monkeypatch):
-    reply = {
-        "text": "Let's ground this in the corpus.",
-        "moves": [
-            {
-                "kind": "add-measure",
-                "target": "measures[]",
-                "proposal": "Measure review latency.",
-                "patch": {
-                    "section": "measures",
-                    "op": "append",
-                    "value": "Review latency",
-                },
-                "refs": ["corpus:trust-in-ai-code-generation"],
-            }
-        ],
-    }
-    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply))
-    turn = _ask(client, "junior developers over-trust AI code")
-    assert turn["source"] == "llm"
-    assert turn["text"] == "Let's ground this in the corpus."
-    assert len(turn["moves"]) == 1
-    assert turn["moves"][0]["kind"] == "add-measure"
-    grounded_refs = {g["ref"] for g in turn["moves"][0]["grounding"]}
-    assert grounded_refs == {"corpus:trust-in-ai-code-generation"}
-
-
-def test_prose_only_model_turn_gets_one_guided_decision_card(client, monkeypatch):
-    """A model's prose must still resolve into the platform's next decision."""
-    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.silent())
-
-    turn = _ask(client, "I want to research how junior engineers use AI")
-
-    assert turn["source"] == "llm"
-    assert len(turn["moves"]) == 1
-    assert turn["moves"][0]["kind"] == "declare-task"
-    assert turn["moves"][0]["grounding"] == []
-
-
-def test_rejected_guided_card_turns_into_a_concrete_choice(client, monkeypatch):
-    """Rejecting a default must change the next turn instead of replaying it."""
-    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.silent())
-
-    first = _ask(client, "I want to research how junior engineers use AI")
-    move = first["moves"][0]
-    _accept(client, move["moveId"], status="rejected")
-
-    next_turn = _ask(client, "what?")
-
-    assert next_turn["moves"] == []
-    assert "actual work" in next_turn["text"]
-    assert move["proposal"] not in next_turn["text"]
-
-
-def test_repeated_model_reply_becomes_a_progress_prompt(client, monkeypatch):
-    """A stuck model cannot ask the same question until the session is abandoned."""
-    repeated = "Tell me more - who takes part, and what will they do?"
-    monkeypatch.setattr(
-        assistant,
-        "make_client",
-        lambda *a, **k: model_double.always({"text": repeated, "moves": []}),
-    )
-
-    first = _ask(client, "I want to research how junior engineers use AI")
-    second = _ask(client, "I want to research how junior engineers use AI")
-
-    assert first["text"] == repeated
-    assert second["text"] != repeated
-    assert "waiting for your decision" in second["text"]
-    assert second["moves"] == []
-
-
-def test_card_decision_can_trigger_one_empty_move_followup(client, monkeypatch):
-    """The card action is explicit context, not a fresh idea the model can misread."""
     monkeypatch.setattr(
         assistant,
         "make_client",
         lambda *a, **k: model_double.always(
-            {
-                "text": "The next decision is ready.",
-                "moves": [
-                    model_double.move(
-                        "add-measure", "measures", "A move that must be suppressed."
-                    )
-                ],
-            }
+            model_double.talk("Let's ground this in the corpus.", "Who takes part?")
         ),
+    )
+    turn = _ask(client, "junior developers over-trust AI code")
+    assert turn["source"] == "llm"
+    assert turn["text"] == "Let's ground this in the corpus."
+    assert turn["questions"] == [{"ask": "Who takes part?", "options": []}]
+    assert turn["moves"] == []
+
+
+def test_card_decision_can_trigger_one_empty_move_followup(client, monkeypatch):
+    """The card action is explicit context, answered without a model call."""
+    captured: list = []
+    monkeypatch.setattr(
+        assistant,
+        "make_client",
+        lambda *a, **k: model_double.always(model_double.draft(), captured),
     )
     first = _ask(client, "I want to research how junior engineers use AI")
     move = first["moves"][0]
     _accept(client, move["moveId"])
+    calls = len(captured)
 
     followup = client.post(
         f"/studies/{STUDY}/conversation/turns",
@@ -597,6 +520,7 @@ def test_card_decision_can_trigger_one_empty_move_followup(client, monkeypatch):
     )
     assert followup.status_code == 200, followup.text
     assert followup.json()["moves"] == []
+    assert len(captured) == calls
 
 
 def test_a_provider_outage_yields_a_holding_turn_never_a_fake_one(client, monkeypatch):
@@ -645,77 +569,23 @@ def test_a_holding_turn_survives_a_reload(client, monkeypatch):
     assert turns[1]["text"]
 
 
-def test_a_holding_turn_is_never_replayed_to_the_model(tmp_path, monkeypatch):
+def test_a_holding_turn_is_never_replayed_to_the_model(client, monkeypatch):
     """
     Persisted for display is not the same as part of the design record. A holding
-    turn still must never reach the model as history on a later, real turn  -  a stored
-    "I couldn't reach the model" replayed back in would be a fabricated assistant turn,
-    and the model would answer as though it had said that itself.
+    turn must never reach the model as history on a later, real turn  -  a stored
+    "the model did not respond" replayed back in would be a fabricated assistant turn.
     """
-    from middleware import design_assistant as da
-
-    settings = Settings(
-        db_path=tmp_path / "replay.sqlite3",
-        data_dir=tmp_path / "data",
-        port=8000,
-        spa_dist=tmp_path / "no-dist",
-    )
-    factory = make_session_factory(f"sqlite:///{settings.db_path}")
-    local_client = TestClient(create_app(settings))
-
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: model_double.outage())
-    local_client.post(
-        f"/studies/{STUDY}/conversation/turns", json={"text": "a thought"}
+    _ask(client, "a thought about developers and Copilot")
+    captured: list = []
+    monkeypatch.setattr(
+        assistant, "make_client", lambda *a, **k: model_double.silent(captured)
     )
-
-    with factory() as s:
-        history = da._load_history(s, STUDY)
-    assert all("couldn't reach" not in h["content"].lower() for h in history)
-    assert all(h["role"] == "user" for h in history), (
-        "the only turn on record is the researcher's own  -  the holding turn must "
-        "not surface as a fabricated assistant message"
-    )
-
-
-def test_history_keeps_the_opening_brief_and_bounds_long_conversations(tmp_path):
-    """Prompt context keeps the study aim without replaying an entire transcript."""
-    from middleware import design_assistant as da
-
-    factory = make_session_factory(f"sqlite:///{tmp_path / 'history.sqlite3'}")
-    with factory() as s:
-        for seq in range(1, 31):
-            role = "researcher" if seq % 2 else "platform"
-            text = "opening study brief" if seq == 1 else f"turn {seq}"
-            if seq == 29:
-                text = "recent detail " + "x" * 1_300
-            s.add(
-                ConversationTurn(
-                    id=f"history-{seq}",
-                    study_id=STUDY,
-                    seq=seq,
-                    role=role,
-                    author="Researcher" if role == "researcher" else "Platform",
-                    text=text,
-                    retrieved_refs=[],
-                    recommendations=[],
-                    created_at="",
-                    source="llm" if role == "platform" else "",
-                )
-            )
-        s.commit()
-    with factory() as s:
-        history = da._load_history(s, STUDY)
-
-    assert len(history) == 9
-    assert history[0]["content"] == "opening study brief"
-    contents = {item["content"] for item in history}
-    assert "turn 3" not in contents
-    assert "turn 23" in contents
-    clipped = next(
-        item["content"] for item in history if "recent detail" in item["content"]
-    )
-    assert len(clipped) == da._LLM_HISTORY_TEXT_CHARS
-    assert clipped.endswith("…")
+    _ask(client, "a second thought about developers and Copilot")
+    sent = json.dumps(captured[-1]["messages"])
+    assert "did not respond" not in sent
+    roles = [m["role"] for m in captured[-1]["messages"]]
+    assert roles == ["system", "user"]
 
 
 def test_the_researchers_own_turn_survives_a_model_outage(client, monkeypatch):
@@ -754,7 +624,9 @@ def test_a_flaky_provider_is_retried_before_giving_up(client, monkeypatch):
         "choices": [
             {
                 "message": {
-                    "content": json.dumps({"text": "Second time lucky.", "moves": []})
+                    "content": json.dumps(
+                        {"reply": "Second time lucky.", "changes": {}}
+                    )
                 }
             }
         ]
@@ -777,226 +649,27 @@ def test_a_flaky_provider_is_retried_before_giving_up(client, monkeypatch):
     turn = _ask(client, "does a blip lose my turn?")
     assert turn["source"] == "llm"
     assert turn["text"].startswith("Second time lucky.")
-    # Two blips, the recovered call, then the turn itself.
-    assert calls["n"] == 4
+    # Two blips, then the recovered call.
+    assert calls["n"] == 3
     assert delays == [0.5, 1.0]
-
-
-_LATENCY_MOVE = {
-    "kind": "add-measure",
-    "target": "measures[]",
-    "proposal": "Measure review latency.",
-    "patch": {"section": "measures", "op": "append", "value": "Review latency"},
-    "refs": ["corpus:trust-in-ai-code-generation"],
-}
-_CONDITIONS_MOVE = {
-    "kind": "set-parameter",
-    "target": "conditions",
-    "proposal": "Run a three-arm condition split.",
-    "patch": {"section": "conditions", "op": "set", "value": "three arms"},
-    "refs": [],
-}
-
-
-def _capturing_llm(reply_json: dict, captured: list):
-    """A fixed-reply model that also records every request body sent."""
-
-    def post(url, body, headers):
-        captured.append(body)
-        return {"choices": [{"message": {"content": json.dumps(reply_json)}}]}
-
-    return assistant.MistralProvider("test-key", post=post)
 
 
 def test_accepted_move_is_not_reproposed(client, monkeypatch):
     """
-    Server-side guard: even an LLM that ignores its instructions and re-emits an
-    accepted move verbatim never repeats it to the researcher.
+    Server-side guard: even a model that ignores its instructions and re-emits the
+    accepted plan verbatim never repeats it to the researcher.
     """
-    reply = {"text": "A grounded measure.", "moves": [_LATENCY_MOVE]}
-    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply))
-    turn = _ask(client, "junior developers over-trust AI code")
-    assert len(turn["moves"]) == 1
-    _accept(client, turn["moves"][0]["moveId"])
+    monkeypatch.setattr(
+        assistant,
+        "make_client",
+        lambda *a, **k: model_double.always(model_double.draft()),
+    )
+    turn = _ask(client, _STUDY_SKETCH)
+    for m in turn["moves"]:
+        _accept(client, m["moveId"])
     again = _ask(client, "what should we measure?")
     assert again["source"] == "llm"
     assert again["moves"] == []
-
-
-def test_design_state_reaches_the_llm(client, monkeypatch):
-    """
-    The second turn's request carries the structured design state: the accepted and
-    rejected moves by name, and the still-empty sections.
-    """
-    reply = {"text": "One measure.", "moves": [_LATENCY_MOVE]}
-    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply))
-    turn = _ask(client, "junior developers over-trust AI code")
-    _accept(client, turn["moves"][0]["moveId"])
-
-    comparison_reply = {"text": "One condition choice.", "moves": [_CONDITIONS_MOVE]}
-    monkeypatch.setattr(
-        assistant, "make_client", lambda *a, **k: _fake_llm(comparison_reply)
-    )
-    comparison = _ask(client, "what should we compare?")
-    _accept(client, comparison["moves"][0]["moveId"], status="rejected")
-
-    captured: list = []
-    monkeypatch.setattr(
-        assistant,
-        "make_client",
-        lambda *a, **k: _capturing_llm({"text": "Noted.", "moves": []}, captured),
-    )
-    _ask(client, "what next?")
-    user = next(
-        body["messages"][-1]["content"]
-        for body in captured
-        if "Candidate menu this turn:" in body["messages"][-1]["content"]
-    )
-    assert "Design state so far:" in user
-    assert "Accepted (already in the draft, do not re-propose):" in user
-    assert "Measure review latency." in user
-    assert "Rejected (the researcher said no, do not re-pitch):" in user
-    assert "Run a three-arm condition split." in user
-    assert "participants" in user.split("Empty:")[-1]
-
-
-def test_a_re_proposed_move_never_reaches_the_researcher_twice(client, monkeypatch):
-    """
-    Enforcement, not instruction: the prompt asks the model not to repeat itself, and
-    this guarantees it regardless of whether the model complies.
-    """
-    reply = {
-        "text": "Here's a measure.",
-        "moves": [
-            model_double.move(
-                "add-measure",
-                "measures",
-                "Review latency before accept/reject",
-                refs=("corpus:trust-in-ai-code-generation",),
-            )
-        ],
-    }
-    monkeypatch.setattr(
-        assistant, "make_client", lambda *a, **k: model_double.always(reply)
-    )
-    first = _ask(client, "how should I measure review depth?")
-    assert len(first["moves"]) == 1
-    _accept(client, first["moves"][0]["moveId"])
-
-    second = _ask(client, "how should I measure review depth?")
-    assert second["moves"] == [], "an accepted move must never be re-pitched"
-
-
-def _conversation_request(captured: list) -> str:
-    """
-    The design-conversation user message among captured LLM request bodies (the same
-    client also serves matching's query-expansion call).
-    """
-    return next(
-        body["messages"][-1]["content"]
-        for body in captured
-        if "Candidate menu this turn:" in body["messages"][-1]["content"]
-    )
-
-
-def test_template_leaves_statistical_plan_and_ethics_open(client, monkeypatch):
-    """
-    An accepted template fills only the design slot (mirroring the researcher-visible
-    meter)  -  statisticalPlan and ethics stay listed as empty, and the state invites
-    recording the template's prescription instead of forbidding statisticalPlan moves.
-    """
-    template_move = {
-        "kind": "choose-template",
-        "target": "design",
-        "proposal": "Adopt the METR paired-RCT design.",
-        "patch": {"templateId": "metr-rct-v1", "parameters": {}},
-        "refs": [],
-    }
-    reply = {"text": "A design.", "moves": [template_move]}
-    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply))
-    turn = _ask(client, "let's run a paired RCT design like the METR study")
-    assert turn["moves"], "the choose-template move must survive"
-    _accept(client, turn["moves"][0]["moveId"])
-
-    captured: list = []
-    ethics_move = {
-        "kind": "set-parameter",
-        "target": "ethics",
-        "proposal": "Consent covers behavioral capture; aggregates only.",
-        "patch": {
-            "section": "ethics",
-            "op": "append",
-            "value": "Consent covers behavioral capture; aggregates only",
-        },
-        "refs": [],
-    }
-    monkeypatch.setattr(
-        assistant,
-        "make_client",
-        lambda *a, **k: _capturing_llm(
-            {"text": "An ethics posture.", "moves": [ethics_move]}, captured
-        ),
-    )
-    turn2 = _ask(client, "what about the ethics posture?")
-    user = _conversation_request(captured)
-    filled_part = user.split("Draft coverage  -  filled:")[-1].split("Empty:")[0]
-    empty_part = user.split("Empty:")[-1]
-    assert "design" in filled_part
-    assert "statisticalPlan" in empty_part
-    assert "ethics" in empty_part
-    assert "record or refine that prescription" in user
-    assert "do not propose a standalone statisticalPlan move" not in user
-
-    _accept(client, turn2["moves"][0]["moveId"])
-    captured.clear()
-    monkeypatch.setattr(
-        assistant,
-        "make_client",
-        lambda *a, **k: _capturing_llm({"text": "Noted.", "moves": []}, captured),
-    )
-    _ask(client, "what next?")
-    user = _conversation_request(captured)
-    filled_part = user.split("Draft coverage  -  filled:")[-1].split("Empty:")[0]
-    assert "ethics" in filled_part
-
-
-def test_accepted_ethics_caution_does_not_block_the_ethics_move(client, monkeypatch):
-    """
-    Regression: after accepting an ethics caution, the pairing ethics append/set move
-    (which restates the caution's concern, as the prompt asks) must still reach the
-    researcher  -  not be dropped as a repeat.
-    """
-    caution_move = {
-        "kind": "caution",
-        "target": "ethics",
-        "proposal": "Workspace snapshots may include personal or sensitive data.",
-        "patch": None,
-        "refs": [],
-    }
-    reply = {"text": "One caution.", "moves": [caution_move]}
-    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply))
-    turn = _ask(client, "we'll capture workspace snapshots")
-    _accept(client, turn["moves"][0]["moveId"])
-
-    ethics_move = {
-        "kind": "set-parameter",
-        "target": "ethics",
-        "proposal": (
-            "Add an ethics posture: workspace snapshots may include personal "
-            "data, so consent must cover snapshot content."
-        ),
-        "patch": {
-            "section": "ethics",
-            "op": "append",
-            "value": "Consent covers snapshot content; personal data included",
-        },
-        "refs": [],
-    }
-    reply2 = {"text": "The posture.", "moves": [ethics_move]}
-    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _fake_llm(reply2))
-    turn2 = _ask(client, "cover that in the ethics posture")
-    assert turn2["source"] == "llm"
-    assert [m["kind"] for m in turn2["moves"]] == ["set-parameter"]
 
 
 def _read_move_order(client: TestClient) -> list[str]:
@@ -1008,7 +681,7 @@ def test_moves_keep_proposal_order_across_decisions(client, tmp_path):
     """The one surfaced card keeps its sequence across decisions."""
     reply = _ask(client, "I think junior developers over-trust AI-generated code")
     proposed = [m["moveId"] for m in reply["moves"]]
-    assert len(proposed) == 1
+    assert len(proposed) == 6
 
     middle = proposed[len(proposed) // 2]
     _accept(client, middle, status="accepted")
@@ -1131,55 +804,45 @@ def test_design_move_seq_migration_backfills_from_id(tmp_path):
     assert rows == {"abc123:t2-m3": 3, "abc123:t2-m12": 12, "not-a-move-id": 0}
 
 
-def test_merge_templates_move_flows_end_to_end(client, tmp_path, monkeypatch):
-    """
-    Phase 5: a merge-templates move survives the whole wire  -  persisted with its
-    patch,
-    reloaded with mergeData reconstructed, compiled into a merged protocol on accept.
-    """
-    import model_double as md
-
-    merge_ids = ("metr-rct-v1", "survey-self-report-v1")
-    monkeypatch.setattr(
-        assistant,
-        "make_client",
-        lambda *a, **k: md.always(
-            {
-                "text": "Combine behaviour telemetry with the survey shape.",
-                "moves": [
-                    md.merge(
-                        merge_ids,
-                        "Objective behaviour data plus self-report perception.",
-                        refs=("corpus:metr-early-2025-dev-productivity",),
-                    )
-                ],
-            }
+@pytest.mark.parametrize(
+    "table,column,migrate",
+    [
+        ("studies", "seed_protocol", "_migrate_study_seed_protocol"),
+        (
+            "enrollment_tokens",
+            "protocol_snapshot",
+            "_migrate_enrollment_protocol_snapshot",
         ),
-    )
+    ],
+)
+def test_new_columns_reach_an_existing_database_when_processes_start_together(
+    tmp_path, table, column, migrate
+):
+    """Several server processes starting on one old database each try to add
+    the column; exactly one does, the rest find it, and old rows read as unset."""
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
 
-    reply = _ask(client, "design a study with telemetry and a self-report survey")
-    merges = [m for m in reply["moves"] if m["kind"] == "merge-templates"]
-    assert merges, "the merge proposal must reach the wire"
-    assert merges[0]["mergeData"] == {
-        "templateIds": list(merge_ids),
-        "reason": "Objective behaviour data plus self-report perception.",
-    }
+    from sqlalchemy import create_engine
 
-    # Reload: mergeData is reconstructed from the stored patch, not just echoed inline.
-    reloaded = client.get(f"/studies/{STUDY}/conversation").json()
-    platform_turn = next(t for t in reloaded["turns"] if t["role"] == "platform")
-    stored_merges = [
-        m for m in platform_turn["moves"] if m["kind"] == "merge-templates"
-    ]
-    assert stored_merges
-    assert stored_merges[0]["mergeData"]["templateIds"] == list(merge_ids)
-    assert stored_merges[0]["patch"]["templateIds"] == list(merge_ids)
+    from middleware import db as db_mod
 
-    # Accepting compiles the merged protocol into the draft.
-    _accept(client, stored_merges[0]["moveId"])
-    compiled = _compile(client)
-    assert compiled["valid"], compiled["errors"]
-    assert compiled["templateId"] is None
-    assert compiled["protocol"]["study"]["title"].startswith("Merged design")
-    refs = {lit["paperRef"] for lit in compiled["protocol"]["literature"]}
-    assert "arxiv:2507.09089" in refs  # the METR paper the merge drew from
+    engine = create_engine(f"sqlite:///{tmp_path / 'old.sqlite3'}")
+    with engine.begin() as conn:
+        conn.exec_driver_sql(f"CREATE TABLE {table} (id TEXT PRIMARY KEY)")
+        conn.exec_driver_sql(f"INSERT INTO {table} (id) VALUES ('old')")  # noqa: S608
+    workers = 6
+    ready = Barrier(workers, timeout=10)
+
+    def upgrade():
+        ready.wait()
+        getattr(db_mod, migrate)(engine)
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for future in [pool.submit(upgrade) for _ in range(workers)]:
+            future.result()
+
+    with engine.connect() as conn:
+        query = f"SELECT id, {column} FROM {table}"  # noqa: S608 - fixed test names
+        row = conn.exec_driver_sql(query).one()
+    assert tuple(row) == ("old", None)

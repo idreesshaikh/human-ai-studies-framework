@@ -1,84 +1,59 @@
 # Literature
 
-The **Literature** tab holds the papers behind a study, the protocol decisions
-each one supports, and related literature. Paper counts and citations describe
-the collection; they do not establish the quality or validity of a study.
+The **Literature** tab holds the papers behind a study, the protocol decisions each
+one supports, and a map of related work. Paper counts and citations describe the
+collection. They do not establish the quality or validity of a study.
 
-<figure markdown="span">
-  ![Literature tab with a paper input and an empty study collection](../assets/screens/evidence-light.webp#only-light)
-  ![Literature tab with a paper input and an empty study collection](../assets/screens/evidence-dark.webp#only-dark)
-  <figcaption>The Literature tab before papers have been added.</figcaption>
-</figure>
+![Literature tab with a paper input and an empty study collection](../assets/screens/evidence.webp)
 
-## Add and find papers
+## Add papers
 
-Paste an arXiv or DOI link, or enter its identifier, in **Paper link or identifier**.
-Choose **Add paper**, or use **Upload PDF** for a researcher-supplied file. Failed
-lookups preserve the input and explain how to try again.
+- Paste an arXiv or DOI link, or its identifier, into **Paper link or identifier**
+  and choose **Add paper**. Looking a paper up makes a request to Semantic
+  Scholar. A failed lookup keeps what you typed and says how to try again.
+- Choose **Upload PDF** to add a file you supply. Uploaded files stay your
+  responsibility.
+- From the [design conversation](design-conversation.md), choose **Add to study**
+  on a paper in the **Literature** view beside the chat.
 
-Larger collections can be filtered by title, author, year or identifier and
-sorted by date added, title or publication year.
+From six papers on, **Filter papers** searches by title, author, year, venue or
+identifier, and **Sort papers** orders by **Recently added**, **Title** or
+**Newest publication**.
 
-## Read and connect
+## Read a paper and link it to the protocol
 
-Select a paper to read its bibliographic details and abstract. **Open source**
-opens the article's public identifier or source page. Add protocol identifiers,
-such as `RQ-1`, to **Protocol links**, then choose **Save links**. Unsaved drafts
-remain available when switching between papers; saving reports the server result.
+1. Select a paper under **Study papers** to read its details and abstract.
+   **Open source** opens its public page.
+2. Enter the protocol identifiers it supports in **Protocol links**, separated by
+   commas, such as `RQ-1, RQ-2`. Choose **Save links**. Unsaved links stay in the
+   field while you look at other papers.
+3. **Remove paper** asks for confirmation, then removes the paper and its links
+   from the study.
 
-**Remove paper** asks for confirmation before removing the paper and its links
-from the study. Read access includes saved links; edit access can change the
-collection.
+If you have read-only access you can read the papers and links but not change
+them.
 
 ## Explore related work
 
-The literature map shows references, later citations and similar work. Select a
-related paper to inspect its details, then choose **Add to study** if it belongs
-in the collection. Citation updates keep the reading pane available.
+The **Literature map** shows what your papers cite, what cites them and similar
+work. Choose **All**, **Earlier work**, **Later work** or **Similar work** to
+filter by relation. Select a related paper to read it, and choose **Add to study** if it
+belongs in the collection.
 
-Use the zoom controls, drag the background to pan, or choose **Fit**. Arrow keys
-move between papers; Enter or Space opens their details.
+Zoom with the **+** and **-** buttons, drag the background to pan, or choose
+**Fit**. With the map focused, the arrow keys move between papers and ++enter++ or
+++space++ opens one.
 
-Local development can import the literature corpus with:
+## Where papers come from
 
-```bash
-uv run --no-sync python -m middleware corpus-import
-```
+The tab says when the bundled paper library was last refreshed and how many
+candidates await review. The library itself is maintained by whoever runs the
+server; see [Keep the literature library current](../reference/literature-library.md).
+Paper metadata comes from Semantic Scholar and arXiv. Abstracts of recommended
+papers are left out of conversation exports and replication kits, so that
+Semantic Scholar abstracts stay out of them.
 
-## Keeping the library current
+## Next steps
 
-A refresh searches arXiv and Semantic Scholar for recent metadata and stores
-unseen papers as candidates. It does not fetch PDFs. Candidates are not searchable
-until a researcher accepts them. The Literature tab shows when the last refresh ran
-and how many candidates await review; an incomplete or failed refresh is identified.
-
-```bash
-uv run --no-sync python -m middleware corpus-refresh --dry-run
-uv run --no-sync python -m middleware corpus-refresh
-uv run --no-sync python -m middleware corpus-candidates --limit 20
-uv run --no-sync python -m middleware corpus-decide --ref arxiv:2610.00000 --decision accept --note "Reviewed title and abstract; relevant to this study area"
-uv run --no-sync python -m middleware corpus-decide --ref arxiv:2610.00001 --decision reject --note "Model benchmark without developer participants"
-```
-
-The example references are placeholders; review actual candidates before deciding.
-Accepting is permanent in v1. Accepted papers are tier C, keep their review note,
-and live in the database: back up that database. They do not count toward completion
-of the checked-in core corpus. Rejecting a candidate excludes it from later imports.
-
-Queries are configured in `docs/papers/refresh-queries.json`, or in a file selected
-by `MIDDLEWARE_REFRESH_QUERIES`. Set `MIDDLEWARE_REFRESH_INTERVAL_H=6` to enable
-an optional six-hour scheduler; leave it empty for manual refreshes. Every refresh
-records its window, counts, and source errors. Only a fully successful run advances
-the date watermark; retries overlap by one day. Recent concurrent runs are refused.
-
-arXiv requests are paced to at least three seconds apart. Semantic Scholar requests
-use its existing rate limiter and bounded retries; keyless requests can receive 429
-responses. A failed source produces a partial run when another source succeeds.
-Set `MIDDLEWARE_S2_API_KEY` if available and `MIDDLEWARE_CONTACT_EMAIL` for an arXiv
-contact address. No source failure silently counts as a successful refresh.
-
-Paper metadata includes data from Semantic Scholar and arXiv. Recommendation
-abstracts are omitted from conversation exports and replication kits; this also
-keeps Semantic Scholar abstracts out of those exports. Uploaded researcher files
-remain the researcher's responsibility. Review Semantic Scholar's caching and
-reuse terms before storing or sharing abstracts.
+- [Review and apply the protocol](protocol-draft.md)
+- [Plan recruitment](planning.md)

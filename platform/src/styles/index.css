@@ -1,6 +1,7 @@
-@layer theme, base, components, utilities;
+/* ui-sdk injects its few behaviour rules into the `ui-sdk` layer; declaring it
+ * first keeps every project style above them. */
+@layer ui-sdk, theme, base, components, utilities;
 @import "tailwindcss";
-@import "tw-animate-css";
 @import "@fontsource-variable/archivo/wght.css";
 @import "@fontsource-variable/spline-sans-mono";
 
@@ -38,10 +39,7 @@
   --color-mark: var(--mark);
   --color-grounded: var(--mark);
   --color-unsourced: var(--unsourced);
-  --color-unsourced-soft: var(--well);
-  --color-held-back: var(--unsourced);
   --color-superseded: var(--superseded);
-  --color-conflict: var(--conflict);
   --color-critical: var(--critical);
   --color-series-1: var(--series-1);
   --color-series-2: var(--series-2);
@@ -172,36 +170,7 @@ body {
   text-rendering: optimizeLegibility;
   caret-color: var(--caret);
 }
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(
-      to right,
-      color-mix(in srgb, var(--grid) 62%, transparent) var(--rule-hair),
-      transparent var(--rule-hair)
-    ),
-    linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--grid) 62%, transparent) var(--rule-hair),
-      transparent var(--rule-hair)
-    );
-  background-size: var(--grid-pitch) var(--grid-pitch);
-  -webkit-mask-image: radial-gradient(
-    120% 90% at 50% 100%,
-    black 0%,
-    transparent 78%
-  );
-  mask-image: radial-gradient(120% 90% at 50% 100%, black 0%, transparent 78%);
-}
-
-#root {
-  position: relative;
-  z-index: 1;
-}
+/* Background grid removed — a research tool benefits from a quiet ground. */
 .text-legend-svg {
   font-family: var(--font-sans);
   font-size: var(--text-legend);
@@ -338,7 +307,7 @@ body::before {
       grid-template-columns: minmax(0, 1fr) clamp(var(--rail-min), var(--rail-share), var(--rail-max));
     }
     .chat-workspace.rail-folded {
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) 3rem;
     }
   }
 }
@@ -455,20 +424,23 @@ body::before {
 :root[data-theme="dark"] .move-card-merged {
   box-shadow: none;
 }
+/* A card that arrives (a new recommendation) rises into place once. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    translate: 0 0.5rem;
+  }
+}
+.rise-in {
+  animation: rise-in var(--motion-entrance) var(--ease-out) both;
+}
 .plate-lift {
   transition:
-    transform var(--motion-standard) var(--ease-settle),
     box-shadow var(--motion-standard) var(--ease-settle),
     border-color var(--motion-fast) var(--ease-out);
 }
 .plate-lift:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-lifted);
-}
-.plate-lift:active {
-  transform: translateY(0);
-  box-shadow: var(--shadow-mark);
-  transition-duration: var(--motion-instant);
+  box-shadow: var(--shadow-plate);
 }
 @media (pointer: coarse), (max-width: 640px) {
   button, summary, nav a, header a, a.type-control, .checkbox-row, [role="tab"], [role="menuitem"], [role="menuitemradio"], [role="radio"],
@@ -718,16 +690,18 @@ body::before {
     background: var(--text-muted);
     border-color: var(--text-muted);
   }
+  /* Content sits in the top layer; inset 0 + auto margins centre it, which
+   * leaves `translate` free for the entrance. */
   .dialog {
     position: fixed;
-    top: 50%;
-    left: 50%;
-    z-index: 50;
+    inset: 0;
+    margin: auto;
     display: flex;
     flex-direction: column;
     width: min(var(--dialog-width, 30rem), calc(100vw - 2rem));
+    height: fit-content;
     max-height: calc(100dvh - 2rem);
-    translate: -50% -50%;
+    padding: 0;
     overflow: hidden;
     border: var(--rule-hair) solid var(--border);
     border-radius: var(--radius-plate);
@@ -776,11 +750,9 @@ body::before {
   }
   @media (max-width: 40rem) {
     .dialog {
-      inset: 0;
       width: 100%;
       height: 100dvh;
       max-height: 100dvh;
-      translate: none;
       border: 0;
       border-radius: 0;
     }
@@ -846,5 +818,143 @@ body::before {
   .checkbox::before,
   .checkbox-row--card {
     transition: none;
+  }
+}
+
+/* ---- Popups (ui-sdk): dialogs, menus, selects, tooltips, segmented controls.
+ * Layered as components so a call site's utilities (`p-3`, `max-w-72`) still
+ * win; only the focus overrides below sit outside the layer, where they can
+ * beat the global focus rule. Every duration is a motion token, so reduced
+ * motion collapses them to 0ms. */
+@layer components {
+  .dialog-scrim {
+    position: fixed;
+    inset: 0;
+    background: var(--scrim);
+    transition: opacity var(--motion-standard) var(--ease-out);
+  }
+  .dialog-plate {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    display: flex;
+    flex-direction: column;
+    width: min(30rem, calc(100vw - 2rem));
+    height: fit-content;
+    max-height: calc(100dvh - 2rem);
+    padding: 1.25rem;
+    border: var(--rule-hair) solid var(--border);
+    border-radius: var(--radius-plate);
+    background: var(--surface-raised);
+    color: var(--text);
+    box-shadow: var(--shadow-lifted);
+  }
+  .dialog-plate--drawer {
+    inset: 0 auto 0 0;
+    margin: 0;
+    width: min(14rem, calc(100vw - 3rem));
+    height: 100dvh;
+    max-height: 100dvh;
+    border-width: 0 var(--rule-hair) 0 0;
+    border-radius: 0;
+  }
+  :is(.dialog, .dialog-plate) {
+    transition:
+      opacity var(--motion-standard) var(--ease-out);
+  }
+  :is(.dialog, .dialog-plate):is([data-starting-style], [data-ending-style]) {
+    opacity: 0;
+  }
+  :is(.dialog, .dialog-plate, .dialog-scrim)[data-ending-style] {
+    transition-duration: var(--motion-fast);
+  }
+  .dialog-scrim:is([data-starting-style], [data-ending-style]) {
+    opacity: 0;
+  }
+
+  /* Menus, select lists and tooltips open from their anchor. */
+  .popup-panel {
+    max-width: calc(100vw - 1rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: var(--rule-hair) solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--surface-raised);
+    color: var(--text);
+    box-shadow: var(--shadow-lifted);
+    transform-origin: var(--transform-origin);
+    transition:
+      opacity var(--motion-fast) var(--ease-out);
+  }
+  .citation-tooltip {
+    max-height: min(20rem, var(--available-height, calc(100dvh - 1rem)));
+    overflow-wrap: anywhere;
+  }
+  :root[data-theme="dark"] .popup-panel {
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--zone-4) 42%, transparent),
+      var(--shadow-lifted);
+  }
+  .popup-panel:is([data-starting-style], [data-ending-style]) {
+    opacity: 0;
+  }
+  .popup-panel[data-ending-style] {
+    transition-duration: var(--motion-instant);
+  }
+  .popup-list {
+    width: var(--anchor-width);
+    min-width: 14rem;
+    max-height: min(20rem, var(--available-height));
+  }
+  .popup-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2rem;
+    padding: 0.375rem 0.5rem;
+    border-radius: var(--radius-control-inner);
+    cursor: default;
+    user-select: none;
+  }
+  .popup-item[data-highlighted] {
+    background: var(--zone-9);
+  }
+  .popup-item.text-critical[data-highlighted] {
+    background: color-mix(in srgb, var(--critical) 9%, var(--surface-raised));
+  }
+  .popup-item[data-disabled] {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  .select-chevron {
+    transition: rotate var(--motion-standard) var(--ease-out);
+  }
+  .select-trigger[data-open] {
+    border-color: var(--text-muted);
+  }
+  .select-trigger[data-open] .select-chevron {
+    rotate: 180deg;
+  }
+
+
+}
+
+/* Focus overrides: a dialog plate never draws the ring; a list item (menu,
+ * select) and a focusable scroll area draw it inside, where neither the
+ * panel's rounded edge nor an ancestor's overflow clips it. Keyboard only, so
+ * a checked item's wash never hides where the keyboard is. */
+:is(.dialog, .dialog-plate):focus-visible {
+  outline: none;
+}
+.popup-item:focus-visible,
+[data-modality="keyboard"] .popup-item[data-highlighted],
+.scroll-region:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+@media (forced-colors: active) {
+  .popup-item:focus-visible,
+  [data-modality="keyboard"] .popup-item[data-highlighted] {
+    outline-color: Highlight;
   }
 }

@@ -3,7 +3,6 @@
 import logging
 from collections import defaultdict
 from hashlib import sha256
-from urllib.parse import quote as _urlquote
 
 from fastapi import (
     BackgroundTasks,
@@ -12,6 +11,7 @@ from fastapi import (
     HTTPException,
     UploadFile,
 )
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -20,6 +20,7 @@ from middleware import (
     corpus_curate,
     corpus_enrich,
     corpus_importer,
+    corpus_live,
     corpus_refresh,
     matching,
     paper_index,
@@ -32,7 +33,6 @@ from middleware.db import (
     Paper,
     PaperEdge,
     PaperLink,
-    S2Cache,
     get_engine,
 )
 from middleware.routes.deps import ApiDeps
@@ -47,7 +47,7 @@ from middleware.schemas import (
 log = logging.getLogger("middleware.app")
 
 
-def register(app: FastAPI, deps: ApiDeps):
+def register(app: FastAPI, deps: ApiDeps, *, refresh_hours: float | None):
     @app.get(
         "/studies/{study_id}/papers",
         dependencies=[Depends(deps.authz["require_project_for_study"]("view"))],
@@ -94,26 +94,13 @@ def register(app: FastAPI, deps: ApiDeps):
     def cached_fetch(s: Session):
         """
         A Semantic Scholar GET wrapped in the DB cache (D8, NFR-7): the graph renders
-        offline after the first fetch.
+        offline after the first fetch. A person is usually waiting, so retries stop
+        at :data:`semantic_scholar.INTERACTIVE_BUDGET_S`.
         """
 
         def fetch(url: str) -> object:
-            # Look up without flushing. An autoflush here writes the previous
-            # response's cache row, which opens SQLite's single write transaction
-            # and holds it through the network request below, so a concurrent
-            # writer such as protocol approval fails with "database is locked".
-            with s.no_autoflush:
-                hit = s.scalar(select(S2Cache).where(S2Cache.url == url))
-            if hit is None:  # rows added in this session but not yet flushed
-                hit = next(
-                    (o for o in s.new if isinstance(o, S2Cache) and o.url == url),
-                    None,
-                )
-            if hit is not None:
-                return hit.body
-            body = semantic_scholar.get_json(url)
-            s.add(S2Cache(url=url, body=body, fetched_at=deps.now()))
-            return body
+            with semantic_scholar.budget(semantic_scholar.INTERACTIVE_BUDGET_S):
+                return semantic_scholar.cached_get(s, url, now=deps.now())
 
         return fetch
 
@@ -375,18 +362,25 @@ def register(app: FastAPI, deps: ApiDeps):
         content = await file.read()
         if not content.startswith(b"%PDF-"):
             raise HTTPException(415, "Upload a PDF file.")
+        # Parsing, the Semantic Scholar lookup and the edge harvest all block;
+        # on a worker thread they never stall the server's other requests.
+        return await run_in_threadpool(
+            _ingest_pdf, s, study_id, content, file.filename or "uploaded.pdf"
+        )
+
+    def _ingest_pdf(s: Session, study_id: str, content: bytes, filename: str) -> dict:
         extracted = pdf.extract(content)
         record = None
-        title = extracted["title"] or (file.filename or "uploaded.pdf")
+        title = extracted["title"] or filename
         try:
-            hits = semantic_scholar.get_json(
-                f"{semantic_scholar.GRAPH_API}/paper/search?"
-                f"query={_urlquote(title)}&fields={semantic_scholar.PAPER_FIELDS}&limit=1"
-            )
-            papers = hits.get("data") if isinstance(hits, dict) else None
+            with semantic_scholar.budget(semantic_scholar.INTERACTIVE_BUDGET_S):
+                papers = semantic_scholar.search(
+                    title, limit=1, fields=semantic_scholar.PAPER_FIELDS
+                )
             if papers:
                 record = semantic_scholar.normalize_paper(papers[0])
-        except semantic_scholar.SemanticScholarError:
+        except semantic_scholar.SemanticScholarError as exc:
+            log.info("no Semantic Scholar match for an uploaded PDF: %s", exc)
             record = None
         if record is None:
             digest = sha256(content).hexdigest()[:16]
@@ -566,20 +560,35 @@ def register(app: FastAPI, deps: ApiDeps):
     def match_study_papers(
         study_id: str, body: MatchIn, s: Session = Depends(deps.db)
     ) -> dict:
-        """Idea → paper recommendations via the match ladder (FR-LIT-9)."""
+        """
+        Idea → paper recommendations via the match ladder (FR-LIT-9). A query the
+        corpus answers weakly also asks Semantic Scholar, within a 2.5 s budget.
+        """
         recommendations = matching.match_papers(
-            s,
-            body.query,
-            study_id=study_id,
-            limit=body.limit,
-            # Keep the interaction responsive and deterministic. The design
-            # conversation has its own model call; adding a second reranker and
-            # query-expansion call here made a paper recommendation block the
-            # next turn without improving the evidence trail reliably.
-            use_llm=False,
-            expand=False,
+            s, body.query, study_id=study_id, limit=body.limit, live=True
         )
         return {"studyId": study_id, "recommendations": recommendations}
+
+    def _corpus_row(s: Session, ref: str) -> Paper | None:
+        """
+        The corpus row for ``ref``. A paper live search returned a moment ago may
+        still be on its way to the corpus; store it now rather than refuse it.
+        """
+        row = s.scalar(
+            select(Paper).where(
+                Paper.study_id == CORPUS_STUDY_ID, Paper.paper_ref == ref
+            )
+        )
+        if row is None and (record := corpus_live.recent(ref)) is not None:
+            stamp = corpus_live.utc_now()
+            corpus_live.store(s, [record], now=stamp, this_year=int(stamp[:4]))
+            s.flush()
+            row = s.scalar(
+                select(Paper).where(
+                    Paper.study_id == CORPUS_STUDY_ID, Paper.paper_ref == ref
+                )
+            )
+        return row
 
     def _adopt_corpus_paper(
         s: Session,
@@ -705,11 +714,7 @@ def register(app: FastAPI, deps: ApiDeps):
         study's paper set with ``addedVia=match`` and the match reason kept - it is
         elicitation evidence.
         """
-        corpus_row = s.execute(
-            select(Paper).where(
-                Paper.study_id == CORPUS_STUDY_ID, Paper.paper_ref == body.ref
-            )
-        ).scalar_one_or_none()
+        corpus_row = _corpus_row(s, body.ref)
         if corpus_row is None:
             raise HTTPException(404, f"paper {body.ref!r} is not in the corpus")
         _match_vals = {
@@ -937,9 +942,16 @@ def register(app: FastAPI, deps: ApiDeps):
             "lastRefresh": corpus_refresh.last_run_summary(
                 s, today=deps.clock().date()
             ),
+            "scheduler": corpus_refresh.schedule_status(
+                s, now=deps.clock(), hours=refresh_hours
+            ),
             "candidates": corpus_refresh.candidate_counts(s),
             "curation": corpus_curate.curation_counts(s),
             "lastCuration": corpus_curate.last_run_summary(s),
+            "liveSearch": {
+                **corpus_live.status(),
+                "added": corpus_live.added_count(s),
+            },
         }
 
     @app.get(

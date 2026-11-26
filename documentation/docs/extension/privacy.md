@@ -63,9 +63,9 @@ When you connect to a study, TERN shows the study's consent statement and
 records nothing until you choose **I consent**. PHOENIX writes that statement
 from the study's protocol.
 
-- The study can change what it captures between your sessions. TERN applies
-  the current settings at the start of each session and does not ask for
-  consent again.
+- Your link keeps the capture settings it was issued with, so a change the
+  researcher makes later does not apply to it. TERN reads those settings again
+  at the start of each session and does not ask for consent again.
 - The summary before each session shows the main kinds of editor activity
   that are on or off. It is not a complete list: questions, window focus,
   saves, the environment snapshot and diagnostic counts are recorded without
@@ -80,3 +80,8 @@ Events written before the crash stay in the file, but the last few may be lost
 or cut off. Events that were not yet sent to the study server are not sent
 later. When you recover the session, the time VS Code was closed counts as a
 break. TERN does not add events for that time.
+
+## Next steps
+
+- [Captured data](captured-data.md) lists every event and field
+- [Run a session](using.md)

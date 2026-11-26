@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from middleware.db import (
     IMPLICIT_PROJECT_ID,
     Event,
+    ProtocolDraftRow,
     Study,
 )
 
@@ -152,3 +153,13 @@ def _event_json(e: Event, *, raw_code: bool = False) -> dict:
         "payload": _capture_payload(e.payload, raw_code),
         "flags": e.flags,
     }
+
+
+def draft_base_yaml(s: Session, study_id: str) -> str:
+    """The protocol a study's draft compiles over: the applied protocol, or
+    before anything is applied, the template the study started from."""
+    applied = s.get(ProtocolDraftRow, study_id)
+    if applied is not None and applied.yaml:
+        return applied.yaml
+    study = s.get(Study, study_id)
+    return (study.seed_protocol or "") if study is not None else ""

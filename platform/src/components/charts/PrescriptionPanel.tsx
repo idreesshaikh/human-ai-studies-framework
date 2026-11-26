@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, FlaskConical, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { studyApi, type Prescription } from "@/lib/studyApi";
 import { cn } from "@/lib/cn";
 import { useAsync } from "@/lib/useAsync";
@@ -26,16 +26,7 @@ export function PrescriptionPanel({ studyId }: { studyId: string }) {
 
   return (
     <section className="flex flex-col gap-3">
-      <div>
-        <h2 className="type-subhead flex items-center gap-2 text-text">
-          <FlaskConical className="size-4 text-text-muted" aria-hidden />
-          Recorded analysis plan
-        </h2>
-        <p className="mt-1 type-note text-text-muted">
-          Planned tests, effect sizes and corrections. Review their assumptions
-          before interpreting results.
-        </p>
-      </div>
+      <h2 className="type-subhead text-text">Recorded analysis plan</h2>
 
       {error ? (
         <Notice kind="problem">Could not load the analysis plan. {error} <Button size="sm" variant="outline" onClick={reload}>Retry analysis plan</Button></Notice>

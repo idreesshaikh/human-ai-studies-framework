@@ -149,13 +149,18 @@ def test_corpus_search_path_returns_confidence_ranked_hits(session):
     assert matching.get_paper_metadata(session, "arxiv:9999.99999") is None
 
 
-def test_query_expansion_degrades_to_raw_query_without_a_key(monkeypatch):
+def test_matching_never_calls_a_model(session, monkeypatch):
     """
-    Semantic expansion (FR-LIT-9) is best-effort: with no LLM key it returns the query
-    unchanged, so keyword FTS stays the floor (NFR-4).
+    The design chat's model quota is one request per researcher message, so the
+    ladder makes no model call even when an old caller still asks for one.
     """
     from middleware import assistant
 
-    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: None)
-    q = "will AI make developers lazy"
-    assert matching.expand_query(q) == q
+    def refuse(*args, **kwargs):
+        raise AssertionError("matching must not build a model client")
+
+    monkeypatch.setattr(assistant, "make_client", refuse)
+    results = matching.match_papers(
+        session, "trust in ai generated code", limit=5, use_llm=True, expand=True
+    )
+    assert results and all(r["source"] == "corpus" for r in results)

@@ -300,9 +300,7 @@ function PointStrip({
         </g>
       </svg>
       <p className="px-2 type-note text-text-muted">
-        Every observation plotted · median line
-        {points.length >= 5 ? " + interquartile box" : ""} · exact values in the
-        table view.
+        Lines mark medians{byCondition.some(({ stats }) => stats && stats.n >= 5) ? " and boxes show interquartile ranges" : ""}.
       </p>
       <Tooltip tip={tip} />
     </div>

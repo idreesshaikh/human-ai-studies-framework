@@ -1052,6 +1052,21 @@ def _apply_task_moves(draft: dict, moves: list[dict]) -> list[str]:
     """Compile accepted ``declare-task`` moves into ``tasks`` (schema v5)."""
     warnings: list[str] = []
     tasks: dict[str, dict] = {t["id"]: dict(t) for t in draft.get("tasks") or []}
+    manual = next(
+        (
+            move.get("patch") or {}
+            for move in moves
+            if move.get("status") == "accepted"
+            and move.get("kind") == "choose-template"
+            and (move.get("patch") or {}).get("manual")
+            and (move.get("patch") or {}).get("replaceTasks") is True
+        ),
+        None,
+    )
+    if manual is not None:
+        keep = set(manual.get("taskIds") or [])
+        tasks = {ident: task for ident, task in tasks.items() if ident in keep}
+    task_order: list[str] = []
     for move in moves:
         if move.get("status") != "accepted" or move.get("kind") != "declare-task":
             continue
@@ -1064,11 +1079,17 @@ def _apply_task_moves(draft: dict, moves: list[dict]) -> list[str]:
                 "can be assigned."
             )
             continue
-        task: dict = {"id": task_id, "title": title}
-        for key in ("description", "materials"):
+        task: dict = {**tasks.get(task_id, {}), "id": task_id, "title": title}
+        for key in ("description", "materials", "version", "contentHash"):
+            if key not in patch:
+                continue
             value = str(patch.get(key) or "").strip()
             if value:
                 task[key] = value
+            elif key in {"materials", "version", "contentHash"}:
+                task.pop(key, None)
+        if "minutes" in patch and patch["minutes"] is None:
+            task.pop("minutes", None)
         minutes = patch.get("minutes")
         if isinstance(minutes, str) and minutes.strip().isdigit():
             minutes = int(minutes)
@@ -1080,8 +1101,13 @@ def _apply_task_moves(draft: dict, moves: list[dict]) -> list[str]:
             if named:
                 task["conditions"] = named
         tasks[task_id] = task
+        if task_id not in task_order:
+            task_order.append(task_id)
     if tasks:
-        draft["tasks"] = list(tasks.values())
+        if manual is not None:
+            draft["tasks"] = [tasks[ident] for ident in task_order if ident in tasks]
+        else:
+            draft["tasks"] = list(tasks.values())
         session = draft.setdefault("session", {})
         if not session.get("taskDescription"):
             session["taskDescription"] = "; ".join(
@@ -1240,7 +1266,11 @@ def _since_manual_entry(moves: list[dict]) -> list[dict]:
 
 def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> CompileResult:
     """Compile accepted moves into a validated protocol draft."""
-    moves = _since_manual_entry(moves)
+    from middleware import study_plan
+
+    # The chat's plan cards become the template moves of the plan they accept.
+    expansion = study_plan.expand_plan_cards(moves, base_yaml)
+    moves = _since_manual_entry(expansion.moves)
     sections = compile_sections(moves)
 
     # A move whose template(s) can't instantiate (hallucinated id, missing required
@@ -1394,6 +1424,9 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
         # The schema needs at least one name; make the placeholder obviously editable.
         study["researchers"] = [RESEARCHER_PLACEHOLDER]
 
+    if expansion.partial is not None:
+        study_plan.project_partial(draft, expansion.partial)
+
     new_yaml = yaml.safe_dump(draft, sort_keys=False, default_flow_style=False)
     base = base_yaml or ""
     diff = "".join(
@@ -1408,7 +1441,8 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
     outstanding = unresolved_slots(draft)
     unresolved = [slot.label for slot in outstanding]
     errors = (
-        failed
+        expansion.errors
+        + failed
         + catalog_errors
         + [
             err
@@ -1416,6 +1450,11 @@ def compile_moves(moves: list[dict], *, base_yaml: str | None = None) -> Compile
             if not _explained_by_slot(err, outstanding)
         ]
     )
+    if expansion.gaps:
+        # An unfinished plan: its missing fields are the whole story. The
+        # template that supplies capture and analysis comes with the full plan.
+        unresolved = expansion.gaps
+        errors = expansion.errors + failed
 
     return CompileResult(
         draft=draft,

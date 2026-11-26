@@ -141,6 +141,18 @@ const auditPage = async (page, label) => {
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
 };
 
+const settleVisual = async (page) => {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+  });
+  await page.waitForFunction(
+    () => document.getAnimations().every((animation) => !(animation instanceof CSSTransition) || animation.playState !== "running"),
+    null,
+    { timeout: 5000 },
+  );
+};
+
 const api = async (path, init) => {
   const res = await fetch(base + path, {
     ...init,
@@ -168,10 +180,71 @@ const { protocol } = await api("/templates/two-group-rct-v1/instantiate", {
 const bare = (await api("/projects/implicit/studies", { method: "POST", body: JSON.stringify({ name: "No protocol" }) })).id;
 const full = (await api("/projects/implicit/studies", { method: "POST", body: JSON.stringify({ name: "With protocol", protocol }) })).id;
 const literature = (await api("/projects/implicit/studies", { method: "POST", body: JSON.stringify({ name: "Evidence browser fixtures" }) })).id;
+const between = (await api("/projects/implicit/studies", { method: "POST", body: JSON.stringify({ name: "Between-subjects planner fixture" }) })).id;
+const betweenDraft = await api(`/studies/${between}/quick-protocol`, {
+  method: "POST",
+  body: JSON.stringify({
+    title: "Between-subjects planner fixture",
+    researchQuestions: ["Does access to an AI assistant change debugging time?"],
+    design: "between-subjects",
+    conditions: ["AI assistant permitted", "No AI assistant"],
+    participantDescription: "Early-career Python developers",
+    plannedParticipants: 24,
+    taskDescription: "Fix a seeded bug in a synthetic Python repository.",
+    sessionMinutes: 60,
+    measures: ["Time to first passing test"],
+    measureIds: ["E1"],
+    typedMeasures: true,
+    counterbalanced: false,
+  }),
+});
+check(betweenDraft.valid, "between-subjects planner fixture compiles through the protocol compiler");
+await api(`/studies/${between}/conversation/approve`, {
+  method: "POST",
+  body: JSON.stringify({
+    compilationId: betweenDraft.compilationId,
+    rationale: "Synthetic planner regression fixture",
+    approvedBy: "Researcher",
+  }),
+});
 
 browser = await engine.launch();
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 context.on("weberror", (event) => check(false, `uncaught browser error: ${event.error().message}`));
+const tokenContext = await browser.newContext({ viewport: { width: 320, height: 568 } });
+const tokenPage = await tokenContext.newPage();
+tokenPage.on("pageerror", (error) => check(false, `uncaught token sign-in error: ${error.message}`));
+const fixtureToken = "disposable-browser-token";
+await tokenPage.route(`${base}/auth/config`, (route) => route.fulfill({ json: { mode: "token" } }));
+await tokenPage.route(`${base}/me`, async (route) =>
+  (await route.request().allHeaders()).authorization === `Bearer ${fixtureToken}`
+    ? route.continue()
+    : route.fulfill({ status: 401, json: { detail: "Invalid session token" } }),
+);
+await tokenPage.goto(base + "/signin?next=%2Fsettings");
+const tokenInput = tokenPage.getByLabel("Session token", { exact: true });
+await tokenInput.fill("incorrect-browser-token");
+await tokenInput.press("Enter");
+await expect(tokenPage.getByText("That session token wasn’t accepted.", { exact: false })).toBeVisible();
+await expect(tokenInput).toHaveAttribute("aria-invalid", "true");
+check(await tokenPage.evaluate(() => localStorage.getItem("middleware.token")) === null, "an incorrect token keeps the sign-in form and is never stored");
+await auditPage(tokenPage, "invalid session token");
+await tokenInput.fill(fixtureToken);
+await tokenInput.press("Enter");
+await expect(tokenPage.getByRole("heading", { name: "Account settings", exact: true })).toBeVisible();
+check(new URL(tokenPage.url()).pathname === "/settings", "correcting the token opens the requested page");
+await tokenPage.evaluate(() => localStorage.setItem("middleware.token", "expired-browser-token"));
+await tokenPage.reload();
+await expect(tokenPage.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
+await tokenInput.fill(fixtureToken);
+await tokenInput.press("Enter");
+await expect(tokenPage.getByRole("heading", { name: "Account settings", exact: true })).toBeVisible();
+check(true, "a rejected stored token allows sign-in without clearing browser storage manually");
+await tokenPage.getByRole("button", { name: "Account", exact: true }).press("ArrowDown");
+await tokenPage.getByRole("menuitem", { name: "Sign out", exact: true }).press("Enter");
+await expect(tokenPage.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
+check(true, "sign-out returns to the sign-in form");
+await tokenContext.close();
 const navigation = await context.newPage();
 await navigation.emulateMedia({ reducedMotion: "reduce" });
 await navigation.setViewportSize({ width: 320, height: 568 });
@@ -196,6 +269,11 @@ await navigation.setViewportSize({ width: 1280, height: 800 });
 await navigation.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
 await expect(navigation.getByRole("heading", { name: "Studies", exact: true })).toBeInViewport();
 check(await navigation.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "the study list reflows at 200% text size");
+await navigation.goto(base + "/studies/%E0%A4%A");
+await expect(navigation.getByRole("alert")).toContainText("The study couldn’t be loaded.");
+await navigation.getByRole("link", { name: "Return to studies", exact: true }).click();
+await expect(navigation.getByRole("heading", { name: "Studies", exact: true })).toBeVisible();
+check(true, "a malformed study URL offers a working return to Studies");
 await navigation.close();
 const evidence = await context.newPage();
 await evidence.goto(`${base}/p/implicit/studies/${literature}?tab=library`);
@@ -291,8 +369,8 @@ await evidence.getByRole("searchbox", { name: "Filter papers", exact: true }).fi
 check(await collection.getByRole("button").count() === 1 && await collection.getByRole("button", { name: new RegExp(evidenceFixtures[1].title) }).isVisible(), "study papers filter by bibliographic information");
 await evidence.getByRole("searchbox", { name: "Filter papers", exact: true }).fill("no such paper");
 await evidence.getByRole("button", { name: "Clear filter", exact: true }).click();
-await evidence.getByRole("button", { name: "Sort papers", exact: true }).click();
-await evidence.getByRole("menuitemradio", { name: "Newest publication", exact: true }).click();
+await evidence.getByRole("combobox", { name: "Sort papers", exact: true }).click();
+await evidence.getByRole("option", { name: "Newest publication", exact: true }).click();
 check((await collection.getByRole("button").first().innerText()).includes(evidenceFixtures[0].title), "study papers can be sorted by publication year");
 await collection.getByRole("button", { name: new RegExp(evidenceFixtures[0].title) }).click();
 const frameHeight = async () => evidence.getByRole("complementary", { name: "Paper details", exact: true }).evaluate((element) => element.getBoundingClientRect().height);
@@ -397,7 +475,7 @@ await context.route("**/*", (route) => {
           check(await page.getByRole("status").filter({ hasText: "Never refreshed" }).isVisible(), `${where}: library freshness is visible`);
         }
       }
-      await page.evaluate(() => document.querySelectorAll("details").forEach((d) => (d.open = true)));
+      await page.evaluate(() => document.querySelectorAll("details:not([data-example-questions])").forEach((d) => (d.open = true)));
       const { focusable, doubles } = await page.evaluate(RING_SCAN);
       check(doubles.length === 0, `${where}: at most one focus ring per element (${focusable} focusable; stacked: ${doubles.join(", ") || "none"})`);
       if (values.screenshots) {
@@ -405,6 +483,7 @@ await context.route("**/*", (route) => {
           document.activeElement?.blur();
           document.querySelectorAll("*").forEach((element) => { element.scrollTop = 0; });
         });
+        await settleVisual(page);
         await page.screenshot({ path: join(values.screenshots, `${hasProtocol ? "protocol" : "empty"}-${tab}-desktop.png`), fullPage: true });
         await page.setViewportSize({ width: 390, height: 844 });
         const mobile = await page.evaluate(RING_SCAN);
@@ -413,6 +492,7 @@ await context.route("**/*", (route) => {
           document.activeElement?.blur();
           document.querySelectorAll("*").forEach((element) => { element.scrollTop = 0; });
         });
+        await settleVisual(page);
         await page.screenshot({ path: join(values.screenshots, `${hasProtocol ? "protocol" : "empty"}-${tab}-mobile.png`), fullPage: true });
       }
       await page.close();
@@ -452,9 +532,22 @@ await context.route("**/*", (route) => {
     await page.reload();
     await page.waitForLoadState("networkidle");
     const applied = await page.evaluate(() => document.documentElement.dataset.theme);
-    const shown = (await page.getByRole("button", { name: "Theme", exact: true }).innerText()).trim();
+    const theme = page.getByRole("combobox", { name: "Theme", exact: true });
+    const shown = (await theme.innerText()).trim();
     check(applied === "dark" && shown === "Dark", `settings theme control shows the applied theme (applied ${applied}, shown ${shown})`);
-    await page.evaluate(() => localStorage.setItem("platform-theme", "light"));
+    await theme.press("Enter");
+    const selectedTheme = page.getByRole("option", { name: "Dark", exact: true, selected: true });
+    const indicatorClearsLabel = await selectedTheme.evaluate((option) => {
+      const indicator = option.querySelector('[data-slot="select-item-indicator"]');
+      const label = option.querySelector(".type-body");
+      return indicator.getBoundingClientRect().right < label.getBoundingClientRect().left;
+    });
+    check(indicatorClearsLabel, "selected listbox options keep the checkmark clear of their label");
+    await page.keyboard.press("l");
+    await page.keyboard.press("Enter");
+    await expect(theme).toHaveText("Light");
+    await expect(theme).toBeFocused();
+    check(true, "select typeahead changes the theme and returns keyboard focus");
     await page.close();
   }
 
@@ -481,8 +574,8 @@ await context.route("**/*", (route) => {
   await page.getByRole("button", { name: "Add research question", exact: true }).click();
   await page.locator("#manual-rq-1").fill("does ai change task completion time?");
   await page.locator("#manual-condition-1").fill("AI-assisted");
-  await page.getByRole("button", { name: "Study design", exact: true }).click();
-  await page.getByRole("menuitemradio", { name: /^Between-subjects/ }).click();
+  await page.getByRole("combobox", { name: "Study design", exact: true }).click();
+  await page.getByRole("option", { name: /^Between-subjects/ }).click();
   await page.locator("#manual-planned").fill("4");
   await page.getByRole("checkbox", { name: /^(task completion time|Time to first passing test)$/ }).check();
   const submitted = () => requests.filter((path) => path.endsWith("/quick-protocol")).length;
@@ -497,8 +590,8 @@ await context.route("**/*", (route) => {
   check(await page.locator("#manual-planned").evaluate((element) => element === document.activeElement), "validation summary returns focus to the field to fix");
   await page.getByRole("button", { name: "Remove research question 2", exact: true }).click();
   await page.locator("#manual-condition-1").fill("unassisted");
-  await page.getByRole("button", { name: "Study design", exact: true }).click();
-  await page.getByRole("menuitemradio", { name: /^Within-subjects/ }).click();
+  await page.getByRole("combobox", { name: "Study design", exact: true }).click();
+  await page.getByRole("option", { name: /^Within-subjects/ }).click();
   await page.locator("#manual-planned").fill("12");
   await page.getByRole("checkbox", { name: /^(task completion time|Time to first passing test)$/ }).check();
   await page.locator("#manual-other-outcomes").fill("mental demand");
@@ -520,6 +613,8 @@ await context.route("**/*", (route) => {
   check(savedPayload.protocol?.protocolVersion === 6, "manual outcomes: confirmed catalog choices save a v6 protocol");
   await page.getByRole("dialog").waitFor({ state: "hidden" });
   await page.getByRole("button", { name: "Review draft", exact: true }).last().click();
+  await expect(page.getByText(/Participants will repeat a task/)).toBeVisible();
+  check(true, "review explains repeated-task risk before applying a within-subjects protocol");
   await auditPage(page, "protocol review dialog");
   const approvalPath = `${base}/studies/${bare}/conversation/approve`;
   const staleDraft = "The draft changed. Review the refreshed protocol before applying it.";
@@ -539,9 +634,118 @@ await context.route("**/*", (route) => {
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("button", { name: "Plan", exact: true }).click();
   await page.getByRole("heading", { name: "Plan participant recruitment" }).waitFor();
+  const outcomeDistribution = page.getByRole("combobox", { name: "Outcome distribution", exact: true });
+  await outcomeDistribution.click();
+  check(
+    await page.getByRole("option", { name: "Log-normal (completion times)", exact: true }).count() === 0,
+    "paired Wilcoxon plans do not offer unsupported log-normal assumptions",
+  );
+  check(await outcomeDistribution.isEnabled(), "paired Wilcoxon keeps supported distributions selectable");
+  check(
+    await page.getByText(/Log-normal assumptions are not supported for paired Wilcoxon plans/).isVisible(),
+    "paired planner explains why log-normal assumptions are unavailable for Wilcoxon",
+  );
+  check(
+    await page.getByText("Difference in outcome units.", { exact: true }).count() === 1 &&
+      await page.getByText("Use the same units as the effect.", { exact: true }).count() === 1,
+    "paired raw completion-time assumptions state their outcome units",
+  );
+  const manualPlanResponse = page.waitForResponse((response) =>
+    response.url().endsWith(`/studies/${bare}/plan`) && response.request().method() === "POST",
+  );
   await page.getByRole("button", { name: "Calculate and save plan", exact: true }).click();
+  const pairedPlanResponse = await manualPlanResponse;
+  check(pairedPlanResponse.status() === 200, "paired manual protocol saves a supported recruitment plan");
+  const pairedPlanFixture = await pairedPlanResponse.json();
   await page.getByText(/Saved plan \d+/).waitFor();
   check(true, "manual entry and Apply unlock Plan without reloading the page");
+
+  const plannerPath = `${base}/studies/${bare}/plan`;
+  let plannerFixtureMode = "saved-wilcoxon-log-normal";
+  await page.route(plannerPath, async (route) => {
+    if (plannerFixtureMode === "live") return route.continue();
+    if (route.request().method() === "GET") {
+      const response = await route.fetch();
+      const doc = await response.json();
+      if (plannerFixtureMode === "saved-wilcoxon-log-normal") {
+        doc.plan.inputs.distribution = "log-normal";
+        await route.fulfill({ response, json: doc });
+        return;
+      }
+      const measure = doc.protocol.measures.find((item) => typeof item === "object");
+      measure.analysisRecipe = "mean-comparison";
+      measure.analysisScale = "log";
+      doc.plan = {
+        ...doc.plan,
+        measureId: measure.id,
+        inputs: {
+          ...doc.plan.inputs,
+          test: "paired-t",
+          distribution: "log-normal",
+        },
+      };
+      await route.fulfill({ response, json: doc });
+      return;
+    }
+    if (route.request().method() === "POST") {
+      if (plannerFixtureMode !== "paired-t-log-scale") return route.continue();
+      const body = route.request().postDataJSON();
+      check(
+        body.test === "paired-t" && body.distribution === "log-normal",
+        "paired t planner submits log-normal assumptions for a declared log-scale outcome",
+      );
+      await route.fulfill({
+        status: 200,
+        json: {
+          ...pairedPlanFixture,
+          inputs: body,
+          measureId: body.measure_id,
+          planId: 9001,
+        },
+      });
+      return;
+    }
+    await route.continue();
+  });
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await page.getByRole("button", { name: "Plan", exact: true }).click();
+  await expect(outcomeDistribution).toHaveText("Normal");
+  check(true, "an older unsupported paired Wilcoxon log-normal plan reopens on supported assumptions");
+
+  plannerFixtureMode = "paired-t-log-scale";
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await page.getByRole("button", { name: "Plan", exact: true }).click();
+  await page.getByText("Log-normal (completion times)", { exact: true }).waitFor();
+  await expect(outcomeDistribution).toHaveText("Log-normal (completion times)");
+  await outcomeDistribution.click();
+  check(
+    await page.getByRole("option", { name: "Log-normal (completion times)", exact: true }).count() === 1 &&
+      await page.getByRole("option", { name: "Ordinal (Likert ratings)", exact: true }).count() === 0,
+    "paired t on a log-scale outcome offers only its supported log-normal assumptions",
+  );
+  await page.keyboard.press("Escape");
+  check(
+    await page.getByRole("button", { name: "Calculate and save plan", exact: true }).isEnabled(),
+    "a paired t test with a declared log-scale measure remains plannable",
+  );
+  await page.getByText("Range, covariates and period assumptions", { exact: true }).click();
+  const periodEffect = page.getByRole("spinbutton", { name: /Period effect/ });
+  await periodEffect.fill("0.2");
+  check(
+    await page.getByRole("button", { name: "Calculate and save plan", exact: true }).isDisabled() &&
+      await page.getByRole("status").filter({ hasText: /Analytic t planning requires zero period and order effects/ }).isVisible(),
+    "paired t planning blocks unsupported nonzero period effects before submission",
+  );
+  await periodEffect.fill("0");
+  const pairedLogResponse = page.waitForResponse((response) =>
+    response.url().endsWith(`/studies/${bare}/plan`) && response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Calculate and save plan", exact: true }).click();
+  check((await pairedLogResponse).status() === 200, "paired log-scale t planning succeeds through the supported UI path");
+  await page.getByText(/Saved plan 9001/).waitFor();
+  plannerFixtureMode = "live";
+  await page.unroute(plannerPath);
+
   await page.getByRole("button", { name: "Run", exact: true }).click();
   await page.waitForLoadState("networkidle");
   await auditPage(page, "typed protocol Run");
@@ -648,13 +852,13 @@ await context.route("**/*", (route) => {
   await capturedSessions.getByText("credential-mismatch", { exact: true }).waitFor();
   check(true, "a complete sequence with flagged rows is visibly marked for capture review");
   const sessionReview = page.getByRole("region", { name: "Session review", exact: true });
-  await sessionReview.getByRole("button", { name: "Show sessions", exact: true }).click();
-  await page.getByRole("menuitemradio", { name: "All sessions", exact: true }).click();
+  await sessionReview.getByRole("combobox", { name: "Show sessions", exact: true }).click();
+  await page.getByRole("option", { name: "All sessions", exact: true }).click();
   await sessionReview.getByRole("searchbox", { name: "Search review sessions", exact: true }).fill(flaggedSessionId);
   await sessionReview.getByRole("button", { name: /^P\d+/ }).first().click();
   await sessionReview.getByText(`Session: ${flaggedSessionId}`, { exact: true }).waitFor();
-  await sessionReview.getByRole("button", { name: /Include in analysis/ }).click();
-  await page.getByRole("menuitemradio", { name: "Exclude", exact: true }).click();
+  await sessionReview.getByRole("combobox", { name: /Include in analysis/ }).click();
+  await page.getByRole("option", { name: "Exclude", exact: true }).click();
   await sessionReview.getByRole("textbox", { name: "Reason for the decision or pilot tag", exact: true }).fill("Synthetic browser fixture: exclude flagged capture from analysis.");
   await sessionReview.getByRole("button", { name: "Save decision", exact: true }).click();
   await sessionReview.getByText(/Last recorded by/).waitFor();
@@ -678,12 +882,92 @@ await context.route("**/*", (route) => {
   const starter = await context.newPage();
   await starter.goto(`${base}/repertoire`);
   await starter.getByRole("button", { name: "Use this template", exact: true }).first().click();
+  // A template opens in Setup as an unapplied draft; Plan unlocks after Apply.
+  await starter.getByRole("heading", { name: "Your draft starts from the template" }).waitFor();
+  await auditPage(starter, "template study before apply");
+  await starter.getByRole("button", { name: "Review draft", exact: true }).last().click();
+  await expect(starter.getByRole("heading", { name: "Current protocol", exact: true })).toBeVisible();
+  await expect(starter.getByText("No decisions from the chat yet")).toBeHidden();
+  await starter.getByText("Decision history", { exact: true }).click();
+  await expect(starter.getByText("No decisions from the chat yet")).toBeVisible();
+  await starter.getByRole("dialog", { name: "Review draft" }).getByRole("button", { name: "Apply protocol", exact: true }).click();
+  await starter.getByRole("link", { name: /Applied\. Plan recruitment/ }).click();
   await starter.getByRole("heading", { name: "Plan participant recruitment" }).waitFor();
   await starter.getByRole("button", { name: "Calculate and save plan", exact: true }).click();
   await starter.getByText(/Saved plan \d+/).waitFor();
   await auditPage(starter, "saved featured plan");
   check(new URL(starter.url()).searchParams.get("tab") === "planning", "featured starter reaches a saved plan without typing a protocol");
   await starter.close();
+
+  const taskStudy = (await api("/projects/implicit/studies", { method: "POST", body: JSON.stringify({ name: "Two-task fixture" }) })).id;
+  const taskPage = await context.newPage();
+  await taskPage.setViewportSize({ width: 390, height: 844 });
+  await taskPage.goto(`${base}/p/implicit/studies/${taskStudy}?tab=conversation`);
+  await taskPage.getByRole("button", { name: "Research tools" }).click();
+  await taskPage.getByRole("menuitem", { name: "Enter protocol manually" }).click();
+  for (const [id, text] of Object.entries({
+    "manual-title": "Two-task study", "manual-rq-0": "Does AI change debugging time?",
+    "manual-condition-0": "AI-assisted", "manual-condition-1": "Unassisted",
+    "manual-participants": "Python developers", "manual-planned": "12",
+    "manual-minutes": "45", "manual-task": "Fix the first failing test.",
+  })) await taskPage.locator(`#${id}`).fill(text);
+  await taskPage.getByRole("checkbox", { name: "Time to first passing test" }).check();
+  await taskPage.getByRole("button", { name: "Add task", exact: true }).click();
+  await taskPage.locator("#manual-task-desc-1").fill("Fix the second failing test.");
+  await taskPage.locator("#manual-task-minutes-0").fill("15");
+  await taskPage.locator("#manual-task-minutes-1").fill("15");
+  await taskPage.getByRole("button", { name: "Add task", exact: true }).click();
+  await taskPage.locator("#manual-task-desc-2").fill("Fix the third failing test.");
+  await taskPage.locator("#manual-task-minutes-2").fill("10");
+  await taskPage.locator("#manual-task-materials-2").fill("fixtures/third-task");
+  await taskPage.locator("#manual-task-version-2").fill("commit-a1b2c3");
+  const taskSave = taskPage.waitForResponse((response) => response.url().endsWith(`/studies/${taskStudy}/quick-protocol`) && response.request().method() === "POST");
+  await taskPage.getByRole("button", { name: "Save draft" }).click();
+  const taskPayload = await (await taskSave).json();
+  const initialTasks = taskPayload.protocol?.tasks ?? [];
+  check(initialTasks.length === 3 && initialTasks[0].minutes === 15 && initialTasks[2].minutes === 10, "manual entry saves an ordered task list with timing");
+  check(initialTasks[2].materials === "fixtures/third-task" && initialTasks[2].version === "commit-a1b2c3", "manual entry records task materials and revision");
+  await taskPage.getByRole("dialog").waitFor({ state: "hidden" });
+
+  // Reopen the saved draft and exercise editing, reordering and removing an
+  // existing task. The ids of the two retained tasks must survive.
+  await taskPage.getByRole("button", { name: "Research tools" }).click();
+  await taskPage.getByRole("menuitem", { name: "Enter protocol manually" }).click();
+  await taskPage.getByRole("button", { name: "Move task 3 up" }).waitFor();
+  if (values.screenshots) {
+    await taskPage.locator("#manual-task").scrollIntoViewIfNeeded();
+    await settleVisual(taskPage);
+    await taskPage.screenshot({ path: join(values.screenshots, "tasks-editor-mobile.png"), fullPage: true });
+    await taskPage.setViewportSize({ width: 1280, height: 800 });
+    await settleVisual(taskPage);
+    await taskPage.screenshot({ path: join(values.screenshots, "tasks-editor-desktop.png"), fullPage: true });
+    await taskPage.setViewportSize({ width: 390, height: 844 });
+  }
+  await taskPage.getByRole("button", { name: "Move task 3 up" }).click();
+  await taskPage.getByRole("button", { name: "Remove task 3" }).click();
+  await taskPage.locator("#manual-task").fill("Fix the updated first failing test.");
+  const revisedTaskSave = taskPage.waitForResponse((response) => response.url().endsWith(`/studies/${taskStudy}/quick-protocol`) && response.request().method() === "POST");
+  await taskPage.getByRole("button", { name: "Save draft" }).click();
+  const revisedTasks = (await (await revisedTaskSave).json()).protocol?.tasks ?? [];
+  check(revisedTasks.length === 2 && revisedTasks[0].id === initialTasks[0].id && revisedTasks[1].id === initialTasks[2].id, "editing a saved protocol preserves retained task ids and applies the chosen order");
+  check(revisedTasks[0].description === "Fix the updated first failing test.", "editing a saved task updates its description");
+  check(revisedTasks[1].materials === "fixtures/third-task" && revisedTasks[1].version === "commit-a1b2c3", "reordering tasks preserves each task's materials and revision");
+  await expect(taskPage.getByText("Updated the manual protocol: Does AI change debugging time?", { exact: true })).toBeVisible();
+  await taskPage.getByRole("dialog").waitFor({ state: "hidden" });
+  await taskPage.getByRole("button", { name: "Review draft", exact: true }).last().click();
+  const taskReview = taskPage.getByRole("dialog", { name: "Review draft" });
+  await expect(taskReview.getByText(/Task 2: Fix the third failing test.*10 min/)).toBeVisible();
+  await expect(taskReview.getByText(/Materials: fixtures\/third-task.*Version: commit-a1b2c3/)).toBeVisible();
+  await expect(taskReview.getByRole("listitem").filter({ hasText: "Task 1: Fix the updated first failing test" })).toBeVisible();
+  check(true, "the review shows the saved tasks once, with timing and materials");
+  if (values.screenshots) {
+    await settleVisual(taskPage);
+    await taskPage.screenshot({ path: join(values.screenshots, "task-review-mobile.png"), fullPage: true });
+    await taskPage.setViewportSize({ width: 1280, height: 800 });
+    await settleVisual(taskPage);
+    await taskPage.screenshot({ path: join(values.screenshots, "task-review-desktop.png"), fullPage: true });
+  }
+  await taskPage.close();
 
   // Failed transport must leave the message editable, and the next Send must
   // actually retry the same request instead of silently becoming a local turn.
@@ -700,6 +984,8 @@ await context.route("**/*", (route) => {
   };
   let releasePending;
   const pendingGate = new Promise((resolve) => { releasePending = resolve; });
+  let releaseOffline;
+  const offlineGate = new Promise((resolve) => { releaseOffline = resolve; });
   await chat.route(new RegExp(`/studies/${chatStudy}/conversation/turns(?:/stream)?$`), async (route) => {
     const request = route.request();
     const body = request.postDataJSON();
@@ -708,7 +994,10 @@ await context.route("**/*", (route) => {
       const error = chatErrors[chatMode];
       return route.fulfill({ status: error.status, contentType: "application/json", body: JSON.stringify({ detail: error.detail }) });
     }
-    if (chatMode === "offline") return route.abort("connectionfailed");
+    if (chatMode === "offline") {
+      await offlineGate;
+      return route.abort("connectionfailed");
+    }
     if (chatMode === "truncated") return route.fulfill({ status: 200, contentType: "text/event-stream", body: 'event: token\ndata: {"text":"Synthetic partial reply"}\n\n' });
     if (chatMode === "pending") {
       await pendingGate;
@@ -728,6 +1017,11 @@ await context.route("**/*", (route) => {
   await retryLoad.click();
   await compiled;
   check(await send.isDisabled(), "chat: blank messages cannot be submitted");
+  await composer.fill("My existing question");
+  await chat.getByRole("button", { name: "Enter protocol manually", exact: true }).click();
+  await chat.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+  check(await composer.inputValue() === "My existing question", "chat: opening and cancelling manual entry preserves the draft");
+  await composer.fill("");
   const compileRequests = [];
   chat.on("request", (request) => {
     if (request.url().endsWith(`/studies/${chatStudy}/conversation/compile`)) compileRequests.push(request);
@@ -739,6 +1033,9 @@ await context.route("**/*", (route) => {
   await expect(composer).toHaveValue(chatText);
   check(true, "chat: moving between Setup and Plan preserves unsent multiline text");
   await composer.press("Enter");
+  await chat.getByRole("button", { name: "Stop reply", exact: true }).waitFor();
+  await expect(composer).toBeFocused();
+  releaseOffline();
   await chat.getByRole("status").filter({ hasText: "Connection interrupted." }).waitFor();
   await expect(composer).toBeFocused();
   check(await composer.inputValue() === chatText, "chat: a failed stream and fallback restore the complete Unicode message");
@@ -767,6 +1064,7 @@ await context.route("**/*", (route) => {
   await pendingRequest;
   await chat.getByRole("button", { name: "Stop reply", exact: true }).click();
   await chat.getByRole("status").filter({ hasText: "Stopped. Your message is back in the box." }).waitFor();
+  await expect(composer).toBeFocused();
   check(chatRequests.length === 6 && await composer.inputValue() === stoppedText, "chat: Stop restores editable text without a fallback POST");
   releasePending();
   for (const [mode, error] of Object.entries(chatErrors)) {
@@ -793,6 +1091,291 @@ await context.route("**/*", (route) => {
   check(compileRequests.length === compiledBeforeReply, "chat: receiving a text-only reply does not write another compilation");
   await auditPage(chat, "chat transport recovery");
   await chat.close();
+
+  // Deliver fragments separately so scrolling and the final handoff are
+  // exercised while the reply is actually growing.
+  const streamStudy = (await api("/projects/implicit/studies", { method: "POST", body: JSON.stringify({ name: "Long reply fixture" }) })).id;
+  const streamPage = await context.newPage();
+  await streamPage.setViewportSize({ width: 390, height: 720 });
+  await streamPage.emulateMedia({ reducedMotion: "reduce" });
+  await streamPage.addInitScript(() => {
+    const fetchRequest = window.fetch;
+    window.fetch = (input, init) => {
+      if (!String(input).endsWith("/conversation/turns/stream")) return fetchRequest(input, init);
+      return Promise.resolve(new Response(new ReadableStream({
+        start(controller) {
+          const encoder = new TextEncoder();
+          window.pushReplyFrame = (event, data) => controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+        },
+      }), { headers: { "content-type": "text/event-stream" } }));
+    };
+  });
+  await streamPage.goto(`${base}/p/implicit/studies/${streamStudy}?tab=conversation`);
+  const welcomeThread = streamPage.getByRole("region", { name: "Conversation", exact: true });
+  const welcome = streamPage.getByRole("region", { name: "Start the study design", exact: true });
+  const welcomeCenter = async () => welcome.evaluate((el) => {
+    const region = el.getBoundingClientRect();
+    const viewport = el.closest('[aria-label="Conversation"]').getBoundingClientRect();
+    return (region.top + region.height / 2 - viewport.top) / viewport.height;
+  });
+  await expect.poll(welcomeCenter).toBeGreaterThan(0.42);
+  await expect.poll(welcomeCenter).toBeLessThan(0.68);
+  if (values.screenshots) await streamPage.screenshot({ path: join(values.screenshots, "study-start-mobile.png") });
+  await streamPage.setViewportSize({ width: 1280, height: 900 });
+  await expect.poll(welcomeCenter).toBeGreaterThan(0.42);
+  await expect.poll(welcomeCenter).toBeLessThan(0.68);
+  if (values.screenshots) await streamPage.screenshot({ path: join(values.screenshots, "study-start-desktop.png") });
+  await streamPage.setViewportSize({ width: 390, height: 720 });
+  await streamPage.getByText("Example questions", { exact: true }).click();
+  await streamPage.getByRole("button", { name: "Debugging time", exact: true }).click();
+  const streamComposer = streamPage.getByRole("textbox", { name: "Message the design assistant" });
+  await expect(streamComposer).toHaveValue(/Compare how long debugging takes/);
+  await expect(streamComposer).toBeFocused();
+  await expect(streamPage.getByRole("button", { name: "Debugging time", exact: true })).toBeHidden();
+  await streamComposer.press("Enter");
+  const thread = streamPage.getByRole("region", { name: "Conversation", exact: true });
+  await expect(thread.getByText("Preparing reply…", { exact: true })).toBeVisible();
+  const distance = () => thread.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight);
+  const push = (text) => streamPage.evaluate((fragment) => window.pushReplyFrame("token", { text: fragment }), text);
+  const first = "## Study setup\n- Use matched tasks.\nKeep the same instructions.\n2. Record task time.\n\n" + Array.from({ length: 18 }, (_, index) => `Observation ${index + 1}. Repeat the instructions consistently across the two study conditions.`).join("\n\n");
+  await push(first);
+  await expect(thread.getByText(/^Observation 18\./)).toBeVisible();
+  const replyStart = thread.getByText("Study setup", { exact: true });
+  const startOffset = async (locator) => (await locator.boundingBox()).y - (await thread.boundingBox()).y;
+  await expect.poll(() => startOffset(replyStart)).toBeGreaterThanOrEqual(0);
+  await expect.poll(() => startOffset(replyStart)).toBeLessThan(150);
+  await thread.press("Home");
+  const latest = streamPage.getByRole("button", { name: "Jump to latest" });
+  await expect(latest).toBeVisible();
+  await expect.poll(() => thread.evaluate((el) => el.scrollTop)).toBeLessThanOrEqual(24);
+  const tail = "\n\nLast fragment with **emphasis**.\n\n" + "x".repeat(500);
+  await push(tail);
+  await expect(thread.getByText("Last fragment with", { exact: false })).toBeVisible();
+  await expect.poll(() => thread.evaluate((el) => el.scrollTop)).toBeLessThanOrEqual(24);
+  if (values.screenshots) await streamPage.screenshot({ path: join(values.screenshots, "chat-reading-mobile.png") });
+  await latest.click();
+  await expect.poll(distance).toBeLessThanOrEqual(2);
+  await expect(thread).toBeFocused();
+  await streamPage.evaluate((text) => {
+    window.pushReplyFrame("done", { researcherTurnId: "stream-user", platformTurnId: "stream-assistant", text, moves: [], recommendations: [], source: "llm" });
+  }, first + tail);
+  await expect(streamPage.getByRole("button", { name: "Stop reply" })).toBeHidden();
+  await expect(thread.getByRole("heading", { name: "Study setup" })).toBeAttached();
+  await expect(thread.getByRole("listitem").filter({ hasText: "Record task time." })).toBeAttached();
+  await expect(thread.getByText("Keep the same instructions.", { exact: true })).toBeAttached();
+  await expect.poll(distance).toBeLessThanOrEqual(8);
+  await expect(thread).toBeFocused();
+  check(await thread.evaluate((el) => el.scrollWidth <= el.clientWidth), "chat: streaming preserves reading position and wraps long tokens");
+
+  // A short reply followed by several tall proposals should land at the
+  // researcher's message and the reply, even when the stream sends no tokens.
+  const followUp = "Yes, use a small Python bug fix.";
+  await streamPage.route(`${base}/studies/${streamStudy}/conversation/moves/*/decision`, (route) => route.fulfill({
+    json: { moveId: route.request().url().split("/").at(-2), status: route.request().postDataJSON().status },
+  }));
+  await streamComposer.fill(followUp);
+  await streamComposer.press("Enter");
+  await expect(thread.getByText("Preparing reply…", { exact: true })).toBeVisible();
+  await streamPage.evaluate(() => {
+    window.pushReplyFrame("done", {
+      researcherTurnId: "follow-up-user", platformTurnId: "follow-up-assistant",
+      text: "Use a matched bug fix in both conditions. Review the draft changes below.",
+      moves: Array.from({ length: 5 }, (_, index) => ({
+        moveId: `fixture-proposal-${index}`, kind: "set-plan", target: "study",
+        proposal: `Draft proposal ${index + 1}. ${"Record assigned task materials and starting code. ".repeat(3)}`,
+        status: "proposed",
+        grounding: index === 0 ? [{
+          ref: "doi:10.1234/long-abstract", confidence: 0.84,
+          title: "Long abstract citation fixture", year: 2026, venue: "Synthetic study methods journal",
+          why: "A deliberately long synthetic abstract tests the citation popover: " + "This paper discusses the research context, study methods, participant population, task materials, measures, analysis plan, and limitations in detail. ".repeat(18),
+        }] : [],
+      })),
+      recommendations: [], source: "llm",
+    });
+  });
+  const freshReply = thread.getByRole("paragraph").filter({ hasText: "Use a matched bug fix" });
+  await expect(freshReply).toBeAttached();
+  if (values.screenshots) await streamPage.screenshot({ path: join(values.screenshots, "new-reply-position-390.png") });
+  await expect(freshReply).toBeInViewport();
+  await expect(thread.getByText(followUp, { exact: true })).toBeInViewport();
+  await expect(thread.locator('[data-move-id="fixture-proposal-0"]')).toBeInViewport();
+  const proposals = thread.locator('[data-move-id^="fixture-proposal-"]:visible');
+  await expect(proposals).toHaveCount(2);
+  await expect(thread.getByText("3 more decisions waiting", { exact: true })).toBeVisible();
+  await expect.poll(distance).toBeGreaterThan(100);
+  await expect(streamComposer).toBeFocused();
+  await streamPage.getByRole("button", { name: "Cited paper: Long abstract citation fixture" }).hover();
+  const citationPopup = streamPage.locator(".citation-tooltip:visible");
+  await expect(citationPopup).toBeVisible();
+  const citationBounds = await citationPopup.boundingBox();
+  const citationFits = await citationPopup.evaluate((el) => {
+    const rect = el.getBoundingClientRect();
+    return rect.top >= 0 && rect.bottom <= innerHeight && rect.height <= 320;
+  });
+  check(Boolean(citationBounds) && citationFits, "chat: long abstracts stay in a compact citation popover within the viewport");
+  check(await citationPopup.locator(".line-clamp-4").evaluate((el) => getComputedStyle(el).webkitLineClamp) === "4", "chat: citation popovers preview long paper text without dumping the abstract");
+  if (values.screenshots) await streamPage.screenshot({ path: join(values.screenshots, "citation-popover-390.png") });
+  await streamPage.mouse.move(0, 0);
+  await expect(citationPopup).toBeHidden();
+  if (values.screenshots) {
+    for (const width of [390, 1280]) {
+      await streamPage.setViewportSize({ width, height: 800 });
+      await settleVisual(streamPage);
+      if (values.screenshots) await streamPage.screenshot({ path: join(values.screenshots, `new-reply-resize-${width}.png`) });
+      await expect(thread.getByText(followUp, { exact: true })).toBeInViewport();
+      await streamPage.screenshot({ path: join(values.screenshots, `new-reply-start-${width}.png`) });
+    }
+  }
+  await thread.getByRole("button", { name: "Accept both", exact: true }).click();
+  await expect(thread.locator('[data-move-id="fixture-proposal-2"]')).toBeFocused();
+  await expect(proposals).toHaveCount(2);
+  await expect(thread.getByText("1 more decision waiting", { exact: true })).toBeVisible();
+  await thread.locator('[data-move-id="fixture-proposal-2"]').press("r");
+  await expect(thread.locator('[data-move-id="fixture-proposal-4"]')).toBeVisible();
+  await expect(thread.getByText(/more decisions? waiting/)).toHaveCount(0);
+  await thread.getByText("Decisions (3)", { exact: true }).click();
+  await thread.locator('[data-move-id="fixture-proposal-2"]').getByRole("button", { name: "Undo" }).press("Enter");
+  await expect(thread.locator('[data-move-id="fixture-proposal-2"]')).toBeFocused();
+  await expect(thread.locator('[data-move-id="fixture-proposal-4"]')).toHaveCount(0);
+  check(true, "chat: two pending decisions advance in order, and Undo brings its card back into view");
+
+  // A question is the only choice on screen, even if the response or an older
+  // turn has pending proposals. Those proposals return after the answer lands.
+  await streamComposer.fill("Let's settle the outcome first.");
+  await streamComposer.press("Enter");
+  await expect(thread.getByText("Preparing reply…", { exact: true })).toBeVisible();
+  await streamPage.evaluate(() => {
+    window.pushReplyFrame("done", {
+      researcherTurnId: "clarification-user", platformTurnId: "clarification-assistant",
+      text: "We can decide the outcome first.",
+      questions: [{ ask: "Which outcome matters most?", options: ["Time to first passing test", "Workload"] }],
+      moves: [{
+        moveId: "proposal-during-question", kind: "set-plan", target: "plan.design",
+        proposal: "A counterbalanced within-subjects design.",
+        patch: { part: "design", plan: { design: "within-subjects", conditions: ["baseline", "Copilot"] }, before: {}, suggested: [] },
+        status: "proposed", grounding: [],
+      }],
+      recommendations: [], source: "llm",
+    });
+  });
+  const outcomeAnswers = thread.getByRole("group", { name: "Answers to: Which outcome matters most?" });
+  await expect(outcomeAnswers).toBeVisible();
+  await expect(outcomeAnswers).toBeInViewport();
+  await expect(thread.locator('[data-move-id="proposal-during-question"]')).toHaveCount(0);
+  await expect(thread.getByText(/more decisions? waiting/)).toHaveCount(0);
+  if (values.screenshots) await streamPage.screenshot({ path: join(values.screenshots, "question-only-1280.png") });
+  await outcomeAnswers.getByRole("button", { name: "Time to first passing test", exact: true }).click();
+  await expect(thread.getByText("Preparing reply…", { exact: true })).toBeVisible();
+  await streamPage.evaluate(() => {
+    window.pushReplyFrame("done", {
+      researcherTurnId: "outcome-answer", platformTurnId: "outcome-follow-up",
+      text: "Time to first passing test will be the primary outcome.",
+      questions: [], moves: [], recommendations: [], source: "llm",
+    });
+  });
+  await expect(thread.locator('[data-move-id^="fixture-proposal-"]:visible')).toHaveCount(2);
+  await expect(thread.getByText(/more decisions? waiting/)).toBeVisible();
+  check(true, "chat: pending questions hide every proposal until the researcher answers");
+  await streamPage.close();
+
+  const answerStudy = (await api("/projects/implicit/studies", { method: "POST", body: JSON.stringify({ name: "Assistant answers fixture" }) })).id;
+  const answers = await context.newPage();
+  await answers.setViewportSize({ width: 320, height: 620 });
+  await answers.emulateMedia({ reducedMotion: "reduce" });
+  const answerPath = `${base}/studies/${answerStudy}`;
+  const question = "Which design fits the study?";
+  const answer = "Assign different participants to assisted and unassisted debugging conditions, using the same starting code and acceptance tests for both groups.";
+  const draftAnswer = "Unsent notes about the participant recruitment window.";
+  const planMove = (moveId, title, status = "proposed") => ({
+    moveId, kind: "set-plan", target: "study", proposal: title, status, grounding: [],
+    patch: { part: "title", plan: { title }, before: {} },
+  });
+  const originalMove = planMove("original:title", "Original study name");
+  const replacement = planMove("updated:title", "Updated study name");
+  // A card the next reply leaves open: it gathers under that reply.
+  const openDesign = {
+    moveId: "original:design", kind: "set-plan", target: "plan.design", proposal: "Use a within-subjects design.", status: "proposed", grounding: [],
+    patch: { part: "design", plan: { design: "within-subjects" }, before: {} },
+  };
+  const firstReply = {
+    turnId: "original", role: "platform", text: "Here is a setup option.",
+    moves: [originalMove, openDesign], recommendations: [],
+    questions: [{ ask: question, options: [answer, "Use the same participants in both conditions"] }],
+  };
+  const nextReply = {
+    turnId: "updated", role: "platform", text: "I updated the study name.",
+    moves: [replacement], recommendations: [],
+  };
+  let answerSaved = false;
+  const answerRequests = [];
+  await answers.route(`${answerPath}/conversation`, (route) => route.fulfill({
+    json: { turns: answerSaved
+      ? [{ ...firstReply, moves: [{ ...originalMove, status: "superseded" }, openDesign] }, nextReply]
+      : [firstReply] },
+  }));
+  await answers.route(`${answerPath}/conversation/turns/stream`, (route) => {
+    answerRequests.push(route.request().postDataJSON());
+    if (answerRequests.length === 1) return route.fulfill({ status: 503, json: { detail: "The assistant is unavailable. Retry this answer." } });
+    answerSaved = true;
+    const reply = {
+      researcherTurnId: "answer", platformTurnId: nextReply.turnId, text: nextReply.text,
+      moves: nextReply.moves, recommendations: [], supersededMoveIds: [originalMove.moveId], source: "llm",
+    };
+    return route.fulfill({ contentType: "text/event-stream", body: `event: done\ndata: ${JSON.stringify(reply)}\n\n` });
+  });
+  await answers.goto(`${answerPath}?tab=setup`);
+  const options = answers.getByRole("group", { name: `Answers to: ${question}` });
+  const answerChip = options.getByRole("button", { name: answer, exact: true });
+  await expect(answerChip).toBeVisible();
+  await answers.reload();
+  await expect(answerChip).toBeVisible();
+  for (const width of [1280, 320]) {
+    await answers.setViewportSize({ width, height: 620 });
+    const fits = await answerChip.evaluate((button) => {
+      const box = button.getBoundingClientRect();
+      const text = document.createRange();
+      text.selectNodeContents(button.firstElementChild);
+      const lines = [...text.getClientRects()];
+      return box.left >= 0 && box.right <= innerWidth
+        && lines.every((line) => line.left >= box.left && line.right <= box.right && line.bottom <= box.bottom)
+        && (innerWidth > 320 || lines.length > 1);
+    });
+    check(fits, `the full saved answer fits its button at ${width}px after reload`);
+    if (values.screenshots) {
+      await options.scrollIntoViewIfNeeded();
+      await settleVisual(answers);
+      await answers.screenshot({ path: join(values.screenshots, `answer-options-${width}.png`) });
+    }
+  }
+  const draftComposer = answers.getByRole("textbox", { name: "Message the design assistant", exact: true });
+  const emptyHeight = await draftComposer.evaluate((element) => element.getBoundingClientRect().height);
+  check(emptyHeight <= 40, "an empty mobile composer stays compact");
+  await draftComposer.fill(draftAnswer);
+  await answerChip.press("Enter");
+  await answers.getByRole("status").filter({ hasText: "The assistant is unavailable." }).waitFor();
+  await expect(draftComposer).toHaveValue(draftAnswer);
+  await expect(draftComposer).toBeFocused();
+  await answerChip.press("Space");
+  const newProposal = answers.locator('[data-move-id="updated:title"]');
+  await expect(newProposal.getByRole("button", { name: "Accept", exact: true })).toBeVisible();
+  await expect(draftComposer).toHaveValue(draftAnswer);
+  check(answerRequests.length === 2 && answerRequests.every((request) => request.text === answer && request.requestId === answerRequests[0].requestId), "keyboard answer and retry preserve the unsent draft and send only the selected answer");
+  await expect(options).toBeHidden();
+  const oldProposal = answers.locator('[data-move-id="original:title"]');
+  const gathered = answers.locator('[data-move-id="original:design"]');
+  const verifyReplacement = async () => {
+    await answers.getByText("Decisions (1)", { exact: true }).click();
+    await expect(oldProposal.getByText("Replaced", { exact: true })).toBeVisible();
+    await expect(oldProposal.getByRole("button")).toHaveCount(0);
+    await expect(gathered.getByRole("button", { name: "Accept", exact: true })).toBeVisible();
+    const latestReply = await answers.getByRole("paragraph").filter({ hasText: "I updated the study name." }).boundingBox();
+    check((await gathered.boundingBox()).y > latestReply.y, "an open plan card from an earlier reply gathers under the latest reply while the earlier reply keeps its decided cards");
+  };
+  await verifyReplacement();
+  await answers.reload();
+  await verifyReplacement();
+  check(true, "superseded proposals become read-only on reply arrival and stay replaced after reload");
+  await answers.close();
 
   const create = await context.newPage();
   let createRequests = 0;
@@ -864,6 +1447,7 @@ await context.route("**/*", (route) => {
   await sourcePage.getByText("Fixture decisions.", { exact: true }).first().waitFor();
   await sourcePage.getByRole("button", { name: "Review draft", exact: true }).last().click();
   const reviewDialog = sourcePage.getByRole("dialog");
+  await reviewDialog.getByText("Decision history", { exact: true }).click();
   await expect(reviewDialog).toContainText("0 with linked sources");
   await reviewDialog.getByText("Earlier sourced decisions (1)", { exact: true }).click();
   await expect(reviewDialog).toContainText("Earlier fixture paper");
@@ -890,6 +1474,33 @@ await context.route("**/*", (route) => {
   const example = await context.newPage();
   const examplePath = `${base}/p/implicit/studies/example-copilot-and-bug-fixing-synthetic-data`;
   await example.goto(`${examplePath}?tab=data`);
+  const exampleChecks = example.getByText("Outcome capture checks", { exact: true });
+  await exampleChecks.click();
+  await example.getByRole("button", { name: "Check captured inputs", exact: true }).click();
+  await example.locator("summary").filter({ hasText: /^Time to first passing test/ }).click();
+  await expect(example.getByText("23 of 25 session units have observed inputs.", { exact: true }).filter({ visible: true })).toBeVisible();
+  await exampleChecks.click();
+  await example.setViewportSize({ width: 320, height: 620 });
+  const exportPath = `${base}/studies/example-copilot-and-bug-fixing-synthetic-data/data-bundle`;
+  const exportFailure = "The data export could not be prepared. Please verify the study configuration and try again.";
+  await example.route(exportPath, (route) => route.fulfill({ status: 503, json: { detail: exportFailure } }), { times: 1 });
+  const exportMenu = example.getByRole("button", { name: "Export study", exact: true });
+  const exportData = example.getByRole("menuitem", { name: /^Data \(\.zip\)/ });
+  await exportMenu.press("ArrowDown");
+  await exportData.press("Enter");
+  const exportAlert = example.getByRole("alert").filter({ hasText: exportFailure });
+  await expect(exportAlert).toBeVisible();
+  const errorFits = await exportAlert.evaluate((element) =>
+    element.scrollWidth <= element.clientWidth && element.getBoundingClientRect().right <= innerWidth,
+  );
+  const help = await example.getByRole("button", { name: "How this workspace works", exact: true }).boundingBox();
+  check(errorFits && help.x + help.width <= 320, "a failed export shows the whole error without pushing mobile controls offscreen");
+  await exportMenu.press("ArrowDown");
+  const retriedExport = example.waitForEvent("download");
+  await exportData.press("Enter");
+  check(await (await retriedExport).failure() === null, "export succeeds on retry after a temporary refusal");
+  await expect(exportAlert).toBeHidden();
+  await example.setViewportSize({ width: 1280, height: 800 });
   const sessionList = example.getByRole("region", { name: "Captured sessions", exact: true });
   await expect(sessionList.getByRole("button", { name: /^P\d+/ })).toHaveCount(6);
   await sessionList.getByRole("button", { name: "Next sessions page", exact: true }).click();
@@ -899,10 +1510,10 @@ await context.route("**/*", (route) => {
   check(await sessionList.getByRole("navigation").count() === 0, "searching sessions resets pagination and keeps the match visible");
   await sessionList.getByRole("searchbox", { name: "Search sessions", exact: true }).fill("");
   const review = example.getByRole("region", { name: "Session review", exact: true });
-  await review.getByRole("button", { name: "Show sessions", exact: true }).waitFor();
+  await review.getByRole("combobox", { name: "Show sessions", exact: true }).waitFor();
   check(await review.getByRole("button", { name: /^P\d+/ }).count() <= 6, "session review starts with a compact set needing attention");
-  await review.getByRole("button", { name: "Show sessions", exact: true }).click();
-  await example.getByRole("menuitemradio", { name: "Control conditions", exact: true }).click();
+  await review.getByRole("combobox", { name: "Show sessions", exact: true }).click();
+  await example.getByRole("option", { name: "Control conditions", exact: true }).click();
   await review.getByRole("button", { name: "Next audit page", exact: true }).click();
   check(await review.getByRole("status").innerText() === "7–12 of 13", "control-session review paginates without treatment-row clutter");
   await review.getByRole("searchbox", { name: "Search review sessions", exact: true }).fill("<script>invalid</script>");
@@ -910,8 +1521,8 @@ await context.route("**/*", (route) => {
   await review.getByRole("searchbox", { name: "Search review sessions", exact: true }).fill("P13");
   await expect(review.getByRole("button", { name: /^P\d+/ })).toHaveCount(1);
   await review.getByRole("searchbox", { name: "Search review sessions", exact: true }).fill("");
-  await review.getByRole("button", { name: "Show sessions", exact: true }).click();
-  await example.getByRole("menuitemradio", { name: "Needs review", exact: true }).click();
+  await review.getByRole("combobox", { name: "Show sessions", exact: true }).click();
+  await example.getByRole("option", { name: "Needs review", exact: true }).click();
   await review.getByRole("button", { name: /^P\d+/ }).first().click();
   await auditPage(example, "populated Data and session review");
   const captureScreens = async (label, target) => {
@@ -926,8 +1537,8 @@ await context.route("**/*", (route) => {
   };
   await captureScreens("session-review", review);
   const measurements = example.getByRole("region", { name: "Measurements", exact: true });
-  await measurements.getByRole("button", { name: "Metric", exact: true }).click();
-  await example.getByRole("menuitemradio", { name: "Acceptance-test outcome", exact: true }).click();
+  await measurements.getByRole("combobox", { name: "Metric", exact: true }).click();
+  await example.getByRole("option", { name: "Acceptance-test outcome", exact: true }).click();
   const spacing = await measurements.evaluate((element) => {
     const chart = [...element.querySelectorAll("div")].find((node) => node.classList.contains("relative") && node.textContent.includes("Each record counts once"));
     const next = [...document.querySelectorAll("h2")].find((heading) => heading.textContent === "Recorded analysis plan");
@@ -1000,6 +1611,34 @@ await context.route("**/*", (route) => {
   }, original);
   check((await mutation.evaluate(RING_SCAN)).doubles.length === 0, "ring scanner passes after restoring the mutation");
   await mutation.close();
+
+  const betweenPage = await context.newPage();
+  await betweenPage.goto(`${base}/p/implicit/studies/${between}?tab=planning`);
+  await betweenPage.getByRole("heading", { name: "Plan participant recruitment" }).waitFor();
+  const betweenDistribution = betweenPage.getByRole("combobox", { name: "Outcome distribution", exact: true });
+  await betweenDistribution.click();
+  const betweenLogNormal = betweenPage.getByRole("option", { name: "Log-normal (completion times)", exact: true });
+  const betweenOrdinal = betweenPage.getByRole("option", { name: "Ordinal (Likert ratings)", exact: true });
+  check(
+    await betweenLogNormal.count() === 1 && await betweenOrdinal.count() === 1,
+    "between-subjects rank plans retain log-normal and ordinal assumptions",
+  );
+  await betweenOrdinal.click();
+  const betweenOrdinalPlan = betweenPage.waitForResponse((response) =>
+    response.url().endsWith(`/studies/${between}/plan`) && response.request().method() === "POST",
+  );
+  await betweenPage.getByRole("button", { name: "Calculate and save plan", exact: true }).click();
+  check((await betweenOrdinalPlan).status() === 200, "between-subjects rank test saves supported ordinal assumptions");
+  await betweenPage.getByText(/Saved plan \d+/).waitFor();
+  await betweenDistribution.click();
+  await betweenPage.getByRole("option", { name: "Log-normal (completion times)", exact: true }).click();
+  const betweenPlan = betweenPage.waitForResponse((response) =>
+    response.url().endsWith(`/studies/${between}/plan`) && response.request().method() === "POST",
+  );
+  await betweenPage.getByRole("button", { name: "Calculate and save plan", exact: true }).click();
+  check((await betweenPlan).status() === 200, "between-subjects log-normal plan saves through the UI");
+  await betweenPage.getByText(/Saved plan \d+/).waitFor();
+  await betweenPage.close();
 } finally {
   await browser?.close();
   stop();

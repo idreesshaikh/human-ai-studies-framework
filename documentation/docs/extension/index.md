@@ -1,13 +1,14 @@
-# TERN
+# About TERN
 
 TERN is the VS Code extension participants run during a study. It times the
 session, asks the study's short questions, and records editor activity as one
 JSONL event file per session. It does not record keystrokes or the code
-participants write.
+participants write. Participants install it once and connect it with the link the
+researcher sends.
 
 This guide describes TERN as it is in the repository, listed in the VS Code
-Extensions view as **StudyLoop Capture**. The `v1.0.1` tagged version differs
-from the current source; see [Install and connect](install.md).
+Extensions view as **StudyLoop Capture**. The `v1.0.1` release differs from the
+current source; see [Install and connect](install.md).
 
 ## Paired and unpaired sessions
 
@@ -58,9 +59,10 @@ and PHOENIX joins them by session.
 !!! note "Signals are not proof of AI use"
     An edit marked `origin: ai` arrived within 500 ms of an accepted inline
     suggestion, or added 80 or more characters in under 50 ms. Formatters,
-    snippets and renames can produce the same pattern. TERN cannot show that a
-    participant in a no-AI condition used no AI, and a missing signal does not
-    show that no AI was used.
+    snippets and renames can produce the same pattern, and the error rates of
+    these signals have not been measured. TERN cannot show that a participant in
+    a no-AI condition used no AI, and a missing signal does not show that no AI
+    was used.
 
 ## Prompts wait for the participant
 
@@ -78,9 +80,29 @@ session and a 15-second stuck threshold. Open `sample_app.py`, start a session,
 make a few edits, then stay on `prioritize_tasks` without typing to see the
 stuck prompt.
 
-## In this section
+Unpaired sessions read the `tern.*` settings. Paired sessions use the study's
+locked configuration instead. These are the settings you are most likely to
+change for an unpaired session:
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `tern.session.durationMinutes` | `60` | Session length |
+| `tern.fatigue.intervalMinutes` | `15` | Time between fatigue questions, varied by ±20% |
+| `tern.fatigue.quietTailMinutes` | `5` | No fatigue questions in this final stretch |
+| `tern.stuck.enabled` | `true` | Show the stuck prompt |
+| `tern.stuck.thresholdSeconds` | `90` | Time on one region without editing before the prompt appears |
+| `tern.stuck.cooldownMinutes` | `5` | Minimum time between stuck prompts |
+| `tern.behavior.enabled` | `true` | Record editor activity |
+| `tern.behavior.languages` | `["python"]` | Languages whose files are recorded. Empty means all |
+| `tern.output.directory` | empty | Folder for event files. Empty means `.study-data/` in the workspace |
+| `tern.output.httpEndpoint` | empty | Also send events to this server, for example `http://127.0.0.1:8000/ingest/events` |
+
+All 45 settings, with descriptions, are in the **Settings** editor under
+*StudyLoop Capture*.
+
+## Next steps
 
 - [Install and connect](install.md)
 - [Run a session](using.md)
-- [Captured data](captured-data.md)
-- [Privacy](privacy.md)
+- [Captured data](captured-data.md) and [Privacy](privacy.md)
+- Researchers: [Give participants TERN](../platform/give-participants-tern.md)

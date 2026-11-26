@@ -6,8 +6,8 @@ import { GroundingChip } from "./GroundingChip";
 import { UnsourcedLabel } from "./UnsourcedLabel";
 import { EvidenceDetails } from "./EvidenceDetails";
 import { cn } from "@/lib/cn";
-import { cleanProposalText, moveEyebrow, moveStateLabel } from "@/lib/uiText";
-import type { DesignMove, MoveStatus } from "@/lib/types";
+import { PLAN_FIELD_LABEL, cleanProposalText, moveEyebrow, moveStateLabel, planValueText } from "@/lib/uiText";
+import { isPlanPatch, type DesignMove, type MoveStatus, type PlanPatch } from "@/lib/types";
 
 /* A proposed design move with accept/reject, and an Undo once decided  -
  * reopens the card to "proposed" rather than flipping straight to the
@@ -28,6 +28,7 @@ export function MoveCard({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const isCaution = move.kind === "caution";
+  const isPlanCard = move.kind === "set-plan";
   // A non-caution move can still land here with no patch (e.g. the LLM
   // proposed a section the compiler doesn't recognize and it got dropped
   // at validation)  -  "in draft" would be a lie in that case, since neither
@@ -85,13 +86,11 @@ export function MoveCard({
       onKeyDown={onKey}
       aria-label={`${eyebrow}: ${cleanProposalText(move.proposal)}.${chosen} ${move.status === "proposed" ? "Awaiting your decision" : moveStateLabel(move.status, move.kind)}`}
       className={cn(
-        "relative transition-all",
+        "relative transition-colors duration-fast",
       /* A proposed move is a compact decision sheet: it has enough framing to
          * separate a protocol choice from the conversation, without becoming a
          * second giant assistant message. Accepted and rejected moves remain
          * readable because nothing here is ever erased. */
-        move.status === "accepted" && "duration-settle ease-settle",
-        move.status === "rejected" && "duration-standard",
         isMergedResearchQuestion && "move-card-merged",
         /* No citation, no score: an undecided unsourced move wears the
          * open ring's dashed outline until the researcher rules on it. */
@@ -125,7 +124,9 @@ export function MoveCard({
             )}
           </div>
 
-          {move.kind === "merge-templates" && move.mergeData ? (
+          {move.patch && isPlanPatch(move.patch) ? (
+            <PlanRows patch={move.patch} status={move.status} />
+          ) : move.kind === "merge-templates" && move.mergeData ? (
             <div className="flex flex-col gap-1.5">
               <p className="type-body leading-snug text-text">{cleanProposalText(move.proposal)}</p>
               <p className="type-note text-text-muted italic">{move.mergeData.reason}</p>
@@ -165,8 +166,10 @@ export function MoveCard({
         {/* Citations stay fully legible regardless of the card's decided
          * state, same reasoning as the Undo button. Never fade an ancestor
          * here: opacity reaches every descendant, including a citation's
-         * absolutely positioned hover card, which would render see-through. */}
-        <div className="mt-1 flex min-w-0 flex-wrap items-start gap-1 border-t border-border pt-1">
+         * absolutely positioned hover card, which would render see-through.
+         * A plan card without a citation says nothing: most plan values are
+         * the researcher's own, and "Unsourced" on each read as a warning. */}
+        {(move.grounding.length > 0 || !isPlanCard) && <div className="mt-1 flex min-w-0 flex-wrap items-start gap-1 border-t border-border pt-1">
           {move.grounding.length > 0 ? (
             move.grounding.map((g) => g.evidence ? (
               <details key={g.ref} className="w-full">
@@ -179,11 +182,11 @@ export function MoveCard({
           ) : (
             <UnsourcedLabel />
           )}
-        </div>
+        </div>}
 
         </div>
 
-        {onDecide && <div className="flex flex-wrap items-center gap-1.5 border-t border-border pt-1 sm:justify-end">
+        {onDecide && move.status !== "superseded" && <div className="flex flex-wrap items-center gap-1.5 border-t border-border pt-1 sm:justify-end">
           {!decided && (
             <div className="flex gap-2">
               <Button
@@ -224,5 +227,41 @@ export function MoveCard({
         </div>}
       </CardContent>
     </Card>
+  );
+}
+
+/* What a plan card changes, one row per field: the proposed value, and the
+ * decided value it replaces when there is one ("Now" while undecided, "Was"
+ * once accepted; a rejected or replaced card changed nothing). */
+function PlanRows({ patch, status }: { patch: PlanPatch; status: MoveStatus }) {
+  const muted = status !== "proposed";
+  const previous = status === "proposed" ? "Now" : status === "accepted" ? "Was" : null;
+  return (
+    <dl className="flex flex-col gap-2">
+      {Object.entries(patch.plan).map(([field, value]) => {
+        const now = planValueText(field, value, patch.names);
+        const was = planValueText(field, patch.before[field], patch.names);
+        const list = field === "researchQuestions" || (field === "measureIds" && now.length > 1);
+        return (
+          <div key={field} className="grid gap-0.5 sm:grid-cols-[8.5rem_1fr] sm:gap-3">
+            <dt className="type-caption pt-0.5 text-text-muted">{PLAN_FIELD_LABEL[field] ?? field}</dt>
+            <dd className={cn("type-body min-w-0 leading-snug [overflow-wrap:anywhere]", muted ? "text-text-muted" : "text-text")}>
+              {list ? (
+                <ol className={cn("flex flex-col gap-1", field === "researchQuestions" && "list-decimal pl-5")}>
+                  {now.map((item, i) => <li key={i}>{item}</li>)}
+                </ol>
+              ) : (
+                now.join(", ")
+              )}
+              {previous && was.length > 0 && (
+                <span className="mt-0.5 block type-caption text-text-muted">
+                  {previous}: {was.join(field === "researchQuestions" ? " · " : ", ")}
+                </span>
+              )}
+            </dd>
+          </div>
+        );
+      })}
+    </dl>
   );
 }

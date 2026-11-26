@@ -43,7 +43,7 @@ def live_stubs(monkeypatch):
             else b'<feed xmlns="http://www.w3.org/2005/Atom"/>'
         )
 
-    def s2(q, since, until, token, n):
+    def s2(q, since, until, token):
         calls["s2"] += 1
         return json.loads((FIX / "s2_real.json").read_text())
 
@@ -170,7 +170,7 @@ def test_fetch_s2_uses_the_semantic_scholar_client_and_checks_the_shape(monkeypa
         "get_json",
         lambda url: seen.append(url) or {"data": [], "token": None},
     )
-    assert corpus_fetchers.fetch_s2("q", "2026-09-08", "2026-10-08", None, 5) == {
+    assert corpus_fetchers.fetch_s2("q", "2026-09-08", "2026-10-08", None) == {
         "data": [],
         "token": None,
     }
@@ -180,8 +180,8 @@ def test_fetch_s2_uses_the_semantic_scholar_client_and_checks_the_shape(monkeypa
     monkeypatch.setattr(
         semantic_scholar, "get_json", lambda url: ["not", "an", "object"]
     )
-    with pytest.raises(ValueError):
-        corpus_fetchers.fetch_s2("q", "a", "b", None, 5)
+    with pytest.raises(semantic_scholar.SemanticScholarError):
+        corpus_fetchers.fetch_s2("q", "a", "b", None)
 
 
 # --- promotion

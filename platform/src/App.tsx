@@ -48,7 +48,7 @@ function LegacyStudyRedirect() {
 const PUBLIC_PATHS = new Set(["/repertoire"]);
 
 function Shell() {
-  const { config, needed, hasCredential, resolving } = useAuth();
+  const { config, hasCredential, resolving } = useAuth();
   const { pathname } = useLocation();
   // While the server's sign-in mode is still being fetched, show
   // neither the app nor the sign-in card  -  `hasCredential` reads false for
@@ -57,7 +57,7 @@ function Shell() {
   if (resolving) return null;
   if (
     config.mode !== "none" &&
-    (needed || !hasCredential) &&
+    !hasCredential &&
     !PUBLIC_PATHS.has(pathname)
   ) {
     return <SignInScreen />;

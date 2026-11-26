@@ -2,6 +2,7 @@ import {
   emptyDraft,
   isFieldPatch,
   isInstrumentPatch,
+  isPlanPatch,
   isStatisticsPatch,
   isSectionPatch,
   isTemplatePatch,
@@ -30,6 +31,10 @@ export function compile(
       continue;
     }
     if (!move.patch) continue; // cautions have no patch
+    if (isPlanPatch(move.patch)) {
+      applyPlan(draft, move.patch.plan, move.patch.names);
+      continue;
+    }
     if (isTemplatePatch(move.patch)) {
       // The only move kind that can ever fill the mandatory `design` slot.
       draft.design = [move.patch.templateId];
@@ -88,6 +93,26 @@ export function compile(
     }
   }
   return draft;
+}
+
+/* An accepted plan card fills the sections its values belong to; the
+ * server's compile adds the template's capture and analysis. */
+function applyPlan(
+  draft: ProtocolDraft,
+  plan: Record<string, unknown>,
+  names: Record<string, string> = {},
+): void {
+  const texts = (value: unknown) =>
+    Array.isArray(value) ? value.map(asText).filter(Boolean) : [];
+  if ("researchQuestions" in plan) draft.researchQuestions = texts(plan.researchQuestions);
+  if (typeof plan.design === "string") draft.design = [plan.design];
+  if ("conditions" in plan) draft.conditions = texts(plan.conditions);
+  if ("plannedParticipants" in plan) {
+    setParticipantLine(draft, "planned", plan.plannedParticipants);
+  }
+  if ("measureIds" in plan) {
+    draft.measures = texts(plan.measureIds).map((id) => names[id] ?? id);
+  }
 }
 
 /* The participants slot shows the move's real planned value ("12

@@ -34,7 +34,6 @@ import urllib.error
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
-from pathlib import Path
 
 import numpy as np
 from sqlalchemy import func, select
@@ -234,16 +233,6 @@ def load_embeddings(s: Session) -> dict[str, np.ndarray]:
 # --- metadata refresh
 
 
-def _lookup_id(s2_id: str | None, doi: str | None, arxiv_id: str | None) -> str:
-    if s2_id:
-        return s2_id
-    if arxiv_id:
-        return f"ARXIV:{strip_version(arxiv_id)}"
-    if doi:
-        return f"DOI:{doi}"
-    return ""
-
-
 def _batches(items: list, size: int) -> Iterable[list]:
     for start in range(0, len(items), size):
         yield items[start : start + size]
@@ -311,9 +300,8 @@ def refresh_metadata(
     Re-check rows and candidates against S2 in batches; returns the refs whose
     searchable text changed. A failing batch is reported and skipped.
     """
-    url = f"{semantic_scholar.GRAPH_API}/paper/batch?fields={S2_FIELDS}"
     targets = [
-        (obj, _lookup_id(obj.s2_id, obj.doi, obj.arxiv_id))
+        (obj, semantic_scholar.lookup_id(obj.s2_id, obj.doi, obj.arxiv_id))
         for obj in [*rows, *candidates]
     ]
     for obj, lookup in targets:
@@ -323,18 +311,15 @@ def refresh_metadata(
     changed: set[str] = set()
     for chunk in _batches(targets, S2_BATCH):
         try:
-            results = post(url, {"ids": [lookup for _, lookup in chunk]})
+            results = semantic_scholar.fetch_batch_raw(
+                [lookup for _, lookup in chunk], fields=S2_FIELDS, post=post
+            )
         except semantic_scholar.SemanticScholarError as exc:
             stats["errors"].append({"source": "s2-batch", "message": str(exc)[:300]})
             continue
-        if not isinstance(results, list):
-            stats["errors"].append(
-                {"source": "s2-batch", "message": "unexpected batch shape"}
-            )
-            continue
         for (obj, _), rec in zip(chunk, results, strict=False):
             ref = obj.paper_ref if isinstance(obj, Paper) else obj.ref
-            if not isinstance(rec, dict) or not rec.get("paperId"):
+            if rec is None:
                 stats["unresolved"] += 1
                 if isinstance(obj, Paper):
                     obj.checked_at = now
@@ -451,10 +436,19 @@ def _verifiable(ref: str, doi: str | None, arxiv_id: str | None) -> bool:
     return bool(doi or arxiv_id or ref.startswith(("doi:", "arxiv:")))
 
 
-def triage_all(s: Session, cfg: dict, *, this_year: int, now: str) -> dict:
-    """Score and triage every corpus row and waiting candidate."""
-    vectors = load_embeddings(s)
-    positive, negative = corpus_refresh.human_examples(s)
+Measure = Callable[[str], tuple[float | None, float | None, float | None]]
+
+
+def judge(
+    vectors: dict[str, np.ndarray],
+    positive: list[str],
+    negative: list[str],
+    cfg: dict,
+) -> tuple[Measure, Cutoffs, int, int]:
+    """
+    ``measure(ref) -> (relevance, nearest example, nearest counter-example)`` over
+    ``vectors``, and the cutoffs calibrated on the examples in the same space.
+    """
     pos_refs = [r for r in positive if r in vectors]
     neg_refs = [r for r in negative if r in vectors]
     if not pos_refs:
@@ -480,6 +474,67 @@ def triage_all(s: Session, cfg: dict, *, this_year: int, now: str) -> dict:
         top = float(_top_k_mean(sims[None, :], k)[0])
         counter = float((unit @ counters.T)[0].max()) if counters is not None else None
         return round(top, 4), float(sims.max()), counter
+
+    return measure, cutoffs, len(pos_refs), len(neg_refs)
+
+
+def decide_candidate(
+    s: Session,
+    cand: CorpusCandidate,
+    measure: Measure,
+    cutoffs: Cutoffs,
+    *,
+    this_year: int,
+    now: str,
+    basis: str = "",
+    may_hide: bool = True,
+) -> str:
+    """
+    Triage one waiting candidate: ``keep`` admits it to the corpus, ``hidden``
+    dismisses it (automatic and reversible), ``review`` leaves it for a person.
+    With ``may_hide`` false, a would-be dismissal is left for a person instead.
+    """
+    rel, nearest, counter = measure(cand.ref)
+    decision, reason = triage(
+        relevance=rel,
+        nearest_example=nearest,
+        nearest_counter=counter,
+        weak=weaknesses(
+            abstract=cand.abstract,
+            year=cand.year,
+            citations=cand.citation_count,
+            verifiable=_verifiable(cand.ref, cand.doi, cand.arxiv_id),
+            this_year=this_year,
+        ),
+        cutoffs=cutoffs,
+    )
+    if decision == "hidden" and not may_hide:
+        decision = "review"
+        reason = f"{reason}; left for a person: no validated dismissal cutoff here"
+    if basis:
+        reason = f"{reason} ({basis})"
+    cand.relevance, cand.triage_reason = rel, reason
+    if decision == "keep":
+        corpus_refresh.promote(
+            s, cand.ref, decided_by=AUTO_DECIDER, now=now, note=reason
+        )
+    elif decision == "hidden":
+        cand.status, cand.decided_by, cand.decided_at, cand.note = (
+            "dismissed",
+            AUTO_DECIDER,
+            now,
+            reason,
+        )
+    else:
+        cand.status, cand.decided_by, cand.decided_at = "new", None, None
+    return decision
+
+
+def triage_all(s: Session, cfg: dict, *, this_year: int, now: str) -> dict:
+    """Score and triage every corpus row and waiting candidate."""
+    vectors = load_embeddings(s)
+    positive, negative = corpus_refresh.human_examples(s)
+    measure, cutoffs, n_pos, n_neg = judge(vectors, positive, negative, cfg)
 
     seeds = {p["ref"]: p for p in corpus_importer.parse_tier_a()}
     moved = dict.fromkeys(CURATIONS, 0)
@@ -510,7 +565,7 @@ def triage_all(s: Session, cfg: dict, *, this_year: int, now: str) -> dict:
             moved[decision] += 1
     s.flush()
 
-    admitted = dismissed = waiting = 0
+    tally = {"keep": 0, "review": 0, "hidden": 0}
     for cand in list(
         s.scalars(
             select(CorpusCandidate).where(
@@ -522,48 +577,24 @@ def triage_all(s: Session, cfg: dict, *, this_year: int, now: str) -> dict:
             )
         )
     ):
-        rel, nearest, counter = measure(cand.ref)
-        decision, reason = triage(
-            relevance=rel,
-            nearest_example=nearest,
-            nearest_counter=counter,
-            weak=weaknesses(
-                abstract=cand.abstract,
-                year=cand.year,
-                citations=cand.citation_count,
-                verifiable=_verifiable(cand.ref, cand.doi, cand.arxiv_id),
-                this_year=this_year,
-            ),
-            cutoffs=cutoffs,
-        )
-        cand.relevance, cand.triage_reason = rel, reason
-        if decision == "keep":
-            corpus_refresh.promote(
-                s, cand.ref, decided_by=AUTO_DECIDER, now=now, note=reason
-            )
-            admitted += 1
-        elif decision == "hidden":
-            cand.status, cand.decided_by, cand.decided_at, cand.note = (
-                "dismissed",
-                AUTO_DECIDER,
-                now,
-                reason,
-            )
-            dismissed += 1
-        else:
-            cand.status, cand.decided_by, cand.decided_at = "new", None, None
-            waiting += 1
+        tally[
+            decide_candidate(s, cand, measure, cutoffs, this_year=this_year, now=now)
+        ] += 1
     s.flush()
     return {
         "cutoffs": {
             "keepAt": cutoffs.keep_at,
             "hideBelow": cutoffs.hide_below,
             "basis": cutoffs.basis,
-            "examples": len(pos_refs),
-            "counterExamples": len(neg_refs),
+            "examples": n_pos,
+            "counterExamples": n_neg,
         },
         "moved": moved,
-        "candidates": {"admitted": admitted, "review": waiting, "dismissed": dismissed},
+        "candidates": {
+            "admitted": tally["keep"],
+            "review": tally["review"],
+            "dismissed": tally["hidden"],
+        },
     }
 
 
@@ -680,21 +711,6 @@ def run(
             record.status, record.finished_at, record.summary = status, now(), result
             s.commit()
         return result
-
-
-def refresh_and_curate(session_factory, *, config_path: Path | None = None) -> dict:
-    """The scheduled job: fetch new candidates, then curate everything."""
-    out: dict = {}
-    try:
-        out["refresh"] = corpus_refresh.run_once(
-            session_factory, config_path=config_path
-        )
-    except (ValueError, corpus_refresh.RefreshInProgress) as exc:
-        log.warning("scheduled refresh skipped: %s", exc)
-        out["refresh"] = {"status": "skipped", "message": str(exc)}
-    config = corpus_refresh.load_config(config_path or corpus_refresh.DEFAULT_QUERIES)
-    out["curation"] = run(session_factory, config=config)
-    return out
 
 
 def last_run_summary(s: Session) -> dict | None:

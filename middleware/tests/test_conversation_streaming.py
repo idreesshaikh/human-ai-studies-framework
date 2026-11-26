@@ -8,30 +8,22 @@ import pytest
 from fastapi.testclient import TestClient
 from middleware.app import create_app
 from middleware.db import ConversationTurn
-from middleware.design_llm import _ReplyTextExtractor
 from middleware.settings import Settings
+from middleware.study_plan import ReplyExtractor
 from sqlalchemy import event
 from sqlalchemy.orm import Session
 
 from middleware import assistant
 
 STUDY = "stream-study"
+MESSAGE = "Does Copilot change how long developers take to fix bugs?"
 
 _REPLY = {
-    "text": "Here is a within-subjects design.\nIt measures task time.",
-    "moves": [
-        {
-            "kind": "add-rq",
-            "target": "researchQuestions",
-            "proposal": "Does AI assistance change task completion time?",
-            "patch": {
-                "section": "researchQuestions",
-                "op": "append",
-                "value": "Does AI assistance change task completion time?",
-            },
-            "refs": [],
-        }
-    ],
+    "reply": "Here is a within-subjects design.\n\nIt measures task time.",
+    "questions": [],
+    "changes": {
+        "researchQuestions": ["Does AI assistance change task completion time?"]
+    },
 }
 
 
@@ -87,15 +79,15 @@ def _events(raw: str) -> list[tuple[str, dict]]:
 
 def test_extractor_yields_prose_not_json():
     """The researcher sees prose, never the braces of the JSON envelope."""
-    extractor = _ReplyTextExtractor()
-    body = json.dumps({"text": "Hello there", "moves": []})
+    extractor = ReplyExtractor()
+    body = json.dumps({"reply": "Hello there", "changes": {}})
     streamed = "".join(extractor.feed(c) for c in _chunks(body, 3))
     assert streamed == "Hello there"
 
 
 def test_extractor_decodes_escapes_and_stops_at_the_close():
-    extractor = _ReplyTextExtractor()
-    body = json.dumps({"text": 'a "quoted" line\nnext', "moves": [{"kind": "x"}]})
+    extractor = ReplyExtractor()
+    body = json.dumps({"reply": 'a "quoted" line\nnext', "changes": {"title": "x"}})
     streamed = "".join(extractor.feed(c) for c in _chunks(body, 5))
     assert streamed == 'a "quoted" line\nnext'
 
@@ -104,22 +96,22 @@ def test_extractor_decodes_escapes_and_stops_at_the_close():
 @pytest.mark.parametrize("ascii_escaped", [True, False])
 def test_extractor_preserves_multilingual_text_and_emoji(size, ascii_escaped):
     text = 'Grüße, 日本語, العربية, 👩🏽‍💻.\n"quoted" \\ slash /\tend'
-    body = json.dumps({"text": text, "moves": []}, ensure_ascii=ascii_escaped)
-    extractor = _ReplyTextExtractor()
+    body = json.dumps({"reply": text, "changes": {}}, ensure_ascii=ascii_escaped)
+    extractor = ReplyExtractor()
     assert "".join(extractor.feed(c) for c in _chunks(body, size)) == text
     assert extractor.text == text
 
 
 @pytest.mark.parametrize("value", [None, 42, [], {}])
 def test_extractor_never_streams_json_keys_for_nontext_values(value):
-    body = json.dumps({"text": value, "moves": [{"kind": "caution"}]})
-    extractor = _ReplyTextExtractor()
+    body = json.dumps({"reply": value, "changes": {"title": "caution"}})
+    extractor = ReplyExtractor()
     assert "".join(extractor.feed(c) for c in _chunks(body, 2)) == ""
 
 
 def test_stream_emits_tokens_then_the_full_turn(client):
     with client.stream(
-        "POST", f"/studies/{STUDY}/conversation/turns/stream", json={"text": "rct"}
+        "POST", f"/studies/{STUDY}/conversation/turns/stream", json={"text": MESSAGE}
     ) as res:
         assert res.status_code == 200
         assert res.headers["content-type"].startswith("text/event-stream")
@@ -128,12 +120,12 @@ def test_stream_emits_tokens_then_the_full_turn(client):
     kinds = [k for k, _ in events]
     assert "token" in kinds and kinds[-1] == "done"
     streamed = "".join(d["text"] for k, d in events if k == "token")
-    assert streamed == _REPLY["text"]
+    assert streamed == _REPLY["reply"]
 
     done = events[-1][1]
-    assert done["text"] == _REPLY["text"]
+    assert done["text"] == _REPLY["reply"]
     assert done["source"] == "llm"
-    assert [m["kind"] for m in done["moves"]] == ["add-rq"]
+    assert [m["kind"] for m in done["moves"]] == ["set-plan"]
     stored = client.get(f"/studies/{STUDY}/conversation").json()["turns"]
     assert [turn["role"] for turn in stored] == ["researcher", "platform"]
     assert stored[1]["turnId"] == done["platformTurnId"]
@@ -143,7 +135,7 @@ def test_stream_emits_tokens_then_the_full_turn(client):
 
 def test_retried_stream_replays_without_duplicate_turns(client):
     """A stream that committed before disconnecting is safe to retry."""
-    body = {"text": "rct", "requestId": "request-once"}
+    body = {"text": MESSAGE, "requestId": "request-once"}
     with client.stream(
         "POST", f"/studies/{STUDY}/conversation/turns/stream", json=body
     ) as res:
@@ -165,7 +157,7 @@ def test_retried_stream_replays_without_duplicate_turns(client):
 @pytest.mark.parametrize("same_message", [True, False])
 def test_overlapping_stream_and_blocking_turn(client, same_message):
     path = f"/studies/{STUDY}/conversation"
-    initial = {"text": "rct", "requestId": "original"}
+    initial = {"text": MESSAGE, "requestId": "original"}
     retry = initial if same_message else {"text": "different", "requestId": "other"}
     barrier = Barrier(2, timeout=5)
 
@@ -224,7 +216,7 @@ def test_waiting_for_model_does_not_block_database_writes(
     study_path = f"/studies/{created.json()['id']}"
     path = f"{study_path}/conversation"
     with ThreadPoolExecutor(max_workers=2) as pool:
-        turn = pool.submit(client.post, f"{path}/turns{suffix}", json={"text": "rct"})
+        turn = pool.submit(client.post, f"{path}/turns{suffix}", json={"text": MESSAGE})
         try:
             assert started.wait(5)
             if remove_study:
@@ -259,7 +251,7 @@ def test_request_id_cannot_replay_a_different_message(client, suffix):
     path = f"/studies/{STUDY}/conversation"
     assert (
         client.post(
-            f"{path}/turns", json={"text": "rct", "requestId": "original"}
+            f"{path}/turns", json={"text": MESSAGE, "requestId": "original"}
         ).status_code
         == 200
     )
@@ -292,7 +284,7 @@ def test_unexpected_stream_failure_is_generic_and_rolls_back(client, monkeypatch
 
     monkeypatch.setattr(design_assistant, "respond_streaming", broken)
     response = client.post(
-        f"/studies/{STUDY}/conversation/turns/stream", json={"text": "rct"}
+        f"/studies/{STUDY}/conversation/turns/stream", json={"text": MESSAGE}
     )
     events = _events(response.text)
     assert [kind for kind, _ in events] == ["token", "error"]
@@ -309,17 +301,46 @@ def test_a_broken_stream_falls_back_to_the_blocking_call(client, monkeypatch):
 
     class _Broken(_StubClient):
         def stream(self, url, payload, headers):
-            yield '{"text": "partial'
+            yield '{"reply": "partial'
             raise ConnectionError("provider hung up")
 
     monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _Broken())
     with client.stream(
-        "POST", f"/studies/{STUDY}/conversation/turns/stream", json={"text": "rct"}
+        "POST", f"/studies/{STUDY}/conversation/turns/stream", json={"text": MESSAGE}
     ) as res:
         events = _events("".join(res.iter_text()))
 
     assert events[-1][0] == "done"
-    assert events[-1][1]["text"] == _REPLY["text"]
+    assert events[-1][1]["text"] == _REPLY["reply"]
+
+
+def test_a_rate_limited_stream_is_not_retried_as_a_blocking_call(client, monkeypatch):
+    """The stream transport already waited and retried the rate limit; a
+    blocking call would spend the same limit again before saying so."""
+    import urllib.error
+
+    blocking_calls = []
+
+    class _Limited(_StubClient):
+        def stream(self, url, payload, headers):
+            yield from ()
+            raise urllib.error.HTTPError(url, 429, "Too Many Requests", {}, None)
+
+        def post(self, *args, **kwargs):
+            blocking_calls.append(args)
+            return super().post(*args, **kwargs)
+
+    monkeypatch.setattr(assistant, "make_client", lambda *a, **k: _Limited())
+    with client.stream(
+        "POST", f"/studies/{STUDY}/conversation/turns/stream", json={"text": MESSAGE}
+    ) as res:
+        events = _events("".join(res.iter_text()))
+
+    kind, done = events[-1]
+    assert kind == "done"
+    assert done["source"] == "unavailable"
+    assert "rate-limiting" in done["text"]
+    assert blocking_calls == []
 
 
 def test_no_model_closes_the_stream_with_a_holding_turn(client, monkeypatch):
@@ -349,10 +370,10 @@ def test_no_model_closes_the_stream_with_a_holding_turn(client, monkeypatch):
 def test_streaming_and_blocking_produce_the_same_turn(client, tmp_path):
     """The stream is a view of the reply, not a different reply."""
     blocking = client.post(
-        f"/studies/{STUDY}-b/conversation/turns", json={"text": "rct"}
+        f"/studies/{STUDY}-b/conversation/turns", json={"text": MESSAGE}
     ).json()
     with client.stream(
-        "POST", f"/studies/{STUDY}-s/conversation/turns/stream", json={"text": "rct"}
+        "POST", f"/studies/{STUDY}-s/conversation/turns/stream", json={"text": MESSAGE}
     ) as res:
         streamed = _events("".join(res.iter_text()))[-1][1]
 
