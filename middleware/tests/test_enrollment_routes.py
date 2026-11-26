@@ -1,3 +1,4 @@
+import model_double
 from fastapi.testclient import TestClient
 
 
@@ -84,7 +85,7 @@ def test_redeem_returns_identity_config_and_consent(client_designed: TestClient)
     assert body["ingestEndpoint"].endswith("/ingest/events")
     assert body["captureConfig"]["settings"]["tern.participantId"] == "P01"
     assert body["contentPolicy"] == "metadata-only"
-    assert "AI assistance on real tasks" in body["consentStatement"]
+    assert model_double.PLAN["title"] in body["consentStatement"]
 
 
 def test_session_grain_token_is_single_use(client_designed: TestClient):
@@ -493,3 +494,46 @@ def test_a_run_tab_toggle_is_recorded_and_survives_the_next_compile(client_desig
     assert response.status_code == 200, response.text
     compiled = response.json()
     assert compiled["protocol"]["instruments"]["tern"]["stuck"]["enabled"] is False
+
+
+def _paired_config(client: TestClient) -> tuple[str, dict]:
+    tok = client.post(
+        "/studies/pilot/enrollment/tokens", json={"count": 1, "grain": "participant"}
+    ).json()[0]
+    raw = tok["connectionString"].split("#", 1)[1]
+    cred = client.post("/pair/redeem", json={"token": raw}).json()["sessionCredential"]
+    headers = {"authorization": f"Bearer {cred}"}
+    config = client.get("/studies/pilot/capture-config", headers=headers).json()
+    return cred, config["settings"]
+
+
+def test_a_capture_change_never_alters_an_issued_link(client_designed):
+    """What a participant consented to stays what their sessions capture; the
+    change applies to links issued after it."""
+    issued_cred, before = _paired_config(client_designed)
+    r = client_designed.post(
+        "/studies/pilot/enrollment/toggles",
+        json={
+            "instrument": "tern",
+            "path": ["stuck", "thresholdSeconds"],
+            "value": 120,
+            "rationale": "fine-tune",
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert (
+        "links already issued keep"
+        in client_designed.get("/studies/pilot/conversation").json()["turns"][-1][
+            "text"
+        ]
+    )
+
+    again = client_designed.get(
+        "/studies/pilot/capture-config",
+        headers={"authorization": f"Bearer {issued_cred}"},
+    ).json()["settings"]
+    assert again == before
+    _, fresh = _paired_config(client_designed)
+    assert {k: v for k, v in fresh.items() if k != "tern.participantId"} != {
+        k: v for k, v in before.items() if k != "tern.participantId"
+    }
