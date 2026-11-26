@@ -249,15 +249,7 @@ def test_design_compatibility_cli_honors_a_keyless_local_route(monkeypatch, tmp_
 
     def post(url, body, headers):
         calls.append((url, headers))
-        return {
-            "choices": [
-                {
-                    "message": {
-                        "content": '{"text":"Check the task and outcome.","moves":[]}'
-                    }
-                }
-            ]
-        }
+        return {"choices": [{"message": {"content": "Check the task and outcome."}}]}
 
     monkeypatch.setenv("LLM_BASE_URL", "http://localhost:11434/v1")
     monkeypatch.setattr(check_design_models, "_post_json", post)
@@ -275,7 +267,7 @@ def test_design_compatibility_cli_honors_a_keyless_local_route(monkeypatch, tmp_
     check_design_models.main()
     assert calls == [("http://localhost:11434/v1/chat/completions", {})] * 3
     report = json.loads((tmp_path / "comparison.json").read_text())
-    assert report["adapter"] == "study_plan.propose+compiler.compile_moves"
+    assert report["adapter"] == "study_plan.converse+compiler.compile_moves"
     assert all(row["outcome"] == "unparsed-reply" for row in report["results"])
     assert all(row["compilerValidDraft"] is None for row in report["results"])
 
@@ -315,7 +307,7 @@ def test_compatibility_smoke_exercises_primary_plan_and_compiler(monkeypatch, tm
         bodies.append(body)
         content = {
             "reply": "A reviewable proposal.",
-            "plan": plan if len(bodies) == 1 else {},
+            "changes": plan if len(bodies) == 1 else {},
         }
         return {
             "model": "local-fixed-1",
@@ -326,7 +318,7 @@ def test_compatibility_smoke_exercises_primary_plan_and_compiler(monkeypatch, tm
     report = _compatibility_cli(monkeypatch, tmp_path, post)
     first, *questions = report["results"]
     assert len(bodies) == 3
-    assert "Current plan:" in bodies[0]["messages"][-1]["content"]
+    assert "<study_state>\nPlan:" in bodies[0]["messages"][-1]["content"]
     assert first["outcome"] == "reviewable-draft"
     assert first["compilerValidDraft"] is True
     assert first["proposedPatchCount"] > 0
